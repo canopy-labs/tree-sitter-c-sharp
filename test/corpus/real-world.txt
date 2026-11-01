@@ -434,3 +434,132 @@ class C {
                 (identifier)
                 (integer_literal))
               (integer_literal))))))))
+
+================================================================================
+Else clause inside a preprocessor block
+================================================================================
+
+class C {
+  void M(object arg, bool hadHandler) {
+    if (!hadHandler) {
+      Refresh();
+    }
+#if DEBUG
+    else if (arg is not null) {
+      Log();
+    }
+#endif
+    if (a) { x = 1; }
+#if !NETFRAMEWORK
+    else if (arg is not null && Try(arg, out var v)) { x = v; }
+#else
+    else if (arg is double d) { x = 2; }
+    else if (arg is float f) { x = 3; }
+#endif
+    else if (arg is string s) { x = 4; }
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list
+          (parameter
+            (predefined_type)
+            (identifier))
+          (parameter
+            (predefined_type)
+            (identifier)))
+        (block
+          (if_statement
+            (prefix_unary_expression
+              (identifier))
+            (block
+              (expression_statement
+                (invocation_expression
+                  (identifier)
+                  (argument_list))))
+            (preproc_if
+              (identifier)
+              (if_statement
+                (is_pattern_expression
+                  (identifier)
+                  (negated_pattern
+                    (constant_pattern
+                      (null_literal))))
+                (block
+                  (expression_statement
+                    (invocation_expression
+                      (identifier)
+                      (argument_list)))))))
+          (if_statement
+            (identifier)
+            (block
+              (expression_statement
+                (assignment_expression
+                  (identifier)
+                  (integer_literal))))
+            (preproc_if
+              (unary_expression
+                (identifier))
+              (if_statement
+                (is_pattern_expression
+                  (identifier)
+                  (negated_pattern
+                    (constant_pattern
+                      (binary_expression
+                        (null_literal)
+                        (invocation_expression
+                          (identifier)
+                          (argument_list
+                            (argument
+                              (identifier))
+                            (argument
+                              (declaration_expression
+                                (implicit_type)
+                                (identifier)))))))))
+                (block
+                  (expression_statement
+                    (assignment_expression
+                      (identifier)
+                      (identifier)))))
+              (preproc_else
+                (if_statement
+                  (is_pattern_expression
+                    (identifier)
+                    (declaration_pattern
+                      (predefined_type)
+                      (identifier)))
+                  (block
+                    (expression_statement
+                      (assignment_expression
+                        (identifier)
+                        (integer_literal))))
+                  (if_statement
+                    (is_pattern_expression
+                      (identifier)
+                      (declaration_pattern
+                        (predefined_type)
+                        (identifier)))
+                    (block
+                      (expression_statement
+                        (assignment_expression
+                          (identifier)
+                          (integer_literal))))))))
+            (if_statement
+              (is_pattern_expression
+                (identifier)
+                (declaration_pattern
+                  (predefined_type)
+                  (identifier)))
+              (block
+                (expression_statement
+                  (assignment_expression
+                    (identifier)
+                    (integer_literal)))))))))))

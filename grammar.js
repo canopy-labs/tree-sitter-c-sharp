@@ -1193,9 +1193,20 @@ export default grammar({
       field('condition', $.expression),
       ')',
       field('consequence', $.statement),
-      optional(seq(
-        'else',
-        field('alternative', $.statement),
+      optional(choice(
+        seq(
+          'else',
+          field('alternative', $.statement),
+        ),
+        // `if (a) { } #if X else if (b) { } #endif`: the `else` lives in the block.
+        // A plain `else` may still follow `#endif` and continue the chain.
+        seq(
+          alias($.preproc_if_in_else, $.preproc_if),
+          optional(seq(
+            'else',
+            field('alternative', $.statement),
+          )),
+        ),
       )),
     )),
 
@@ -2235,6 +2246,7 @@ export default grammar({
     ...preprocIf('', $ => $.declaration),
     ...preprocIf('_in_top_level', $ => choice($._top_level_item_no_statement, $.statement)),
     ...preprocIf('_in_expression', $ => $.expression, -2, false),
+    ...preprocIf('_in_else', $ => seq('else', field('alternative', $.statement)), 0, false),
     ...preprocIf('_in_collection', $ => $._collection_items, -2, false),
     ...preprocIf('_in_initializer', $ => $._initializer_items, -2, false),
     ...preprocIf('_in_enum_member_declaration', $ => $.enum_member_declaration, 0, false),
