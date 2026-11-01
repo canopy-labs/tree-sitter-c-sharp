@@ -170,3 +170,71 @@ ref struct Plain { }
   (struct_declaration
     (identifier)
     (declaration_list)))
+
+================================================================================
+Checked and unchecked expressions as constant patterns
+================================================================================
+
+class C {
+  void M(Exception e) {
+    var a = e is ExternalException { HResult: unchecked((int)0x800401D0) };
+    var b = e is { HResult: checked(5) };
+    var c = e is unchecked(5);
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list
+          (parameter
+            (identifier)
+            (identifier)))
+        (block
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (is_pattern_expression
+                  (identifier)
+                  (recursive_pattern
+                    (identifier)
+                    (property_pattern_clause
+                      (subpattern
+                        (identifier)
+                        (constant_pattern
+                          (checked_expression
+                            (cast_expression
+                              (predefined_type)
+                              (integer_literal)))))))))))
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (is_pattern_expression
+                  (identifier)
+                  (recursive_pattern
+                    (property_pattern_clause
+                      (subpattern
+                        (identifier)
+                        (constant_pattern
+                          (checked_expression
+                            (integer_literal))))))))))
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (is_pattern_expression
+                  (identifier)
+                  (constant_pattern
+                    (checked_expression
+                      (integer_literal))))))))))))
