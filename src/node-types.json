@@ -663,6 +663,10 @@
           "named": true
         },
         {
+          "type": "preproc_if",
+          "named": true
+        },
+        {
           "type": "preproc_if_in_attribute_list",
           "named": true
         }
@@ -1984,6 +1988,10 @@
           "named": true
         },
         {
+          "type": "preproc_if",
+          "named": true
+        },
+        {
           "type": "preproc_if_in_attribute_list",
           "named": true
         }
@@ -2063,6 +2071,10 @@
         },
         {
           "type": "modifier",
+          "named": true
+        },
+        {
+          "type": "preproc_if",
           "named": true
         },
         {
@@ -2282,6 +2294,10 @@
       "types": [
         {
           "type": "attribute_list",
+          "named": true
+        },
+        {
+          "type": "preproc_if",
           "named": true
         },
         {
@@ -3863,6 +3879,10 @@
           "named": true
         },
         {
+          "type": "preproc_if",
+          "named": true
+        },
+        {
           "type": "preproc_if_in_attribute_list",
           "named": true
         },
@@ -4050,6 +4070,10 @@
         },
         {
           "type": "modifier",
+          "named": true
+        },
+        {
+          "type": "preproc_if",
           "named": true
         },
         {
@@ -4392,6 +4416,10 @@
         },
         {
           "type": "modifier",
+          "named": true
+        },
+        {
+          "type": "preproc_if",
           "named": true
         },
         {
@@ -4759,6 +4787,20 @@
           }
         ]
       },
+      "body": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "arrow_expression_clause",
+            "named": true
+          },
+          {
+            "type": "block",
+            "named": true
+          }
+        ]
+      },
       "condition": {
         "multiple": false,
         "required": true,
@@ -4837,6 +4879,10 @@
         {
           "type": "type_declaration",
           "named": true
+        },
+        {
+          "type": "type_parameter_constraints_clause",
+          "named": true
         }
       ]
     }
@@ -4851,6 +4897,20 @@
         "types": [
           {
             "type": "statement",
+            "named": true
+          }
+        ]
+      },
+      "body": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "arrow_expression_clause",
+            "named": true
+          },
+          {
+            "type": "block",
             "named": true
           }
         ]
@@ -4898,6 +4958,10 @@
         },
         {
           "type": "type_declaration",
+          "named": true
+        },
+        {
+          "type": "type_parameter_constraints_clause",
           "named": true
         }
       ]
@@ -4954,6 +5018,20 @@
           },
           {
             "type": "statement",
+            "named": true
+          }
+        ]
+      },
+      "body": {
+        "multiple": false,
+        "required": false,
+        "types": [
+          {
+            "type": "arrow_expression_clause",
+            "named": true
+          },
+          {
+            "type": "block",
             "named": true
           }
         ]
@@ -5031,6 +5109,10 @@
         },
         {
           "type": "type_declaration",
+          "named": true
+        },
+        {
+          "type": "type_parameter_constraints_clause",
           "named": true
         }
       ]

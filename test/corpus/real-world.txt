@@ -628,3 +628,90 @@ class C {
                 (argument_list))))
           (return_statement
             (boolean_literal)))))))
+
+================================================================================
+Method body that differs per preprocessor branch
+================================================================================
+
+class C {
+  internal static T Convert<T>(object o)
+#if NETFRAMEWORK
+  {
+    return (T)o;
+  }
+#else
+      where T : INumber<T>
+  {
+    return T.CreateChecked(o);
+  }
+#endif
+
+  int Twice(int x)
+#if A
+    => x * 2;
+#else
+    { return x + x; }
+#endif
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (method_declaration
+        (modifier)
+        (modifier)
+        (identifier)
+        (identifier)
+        (type_parameter_list
+          (type_parameter
+            (identifier)))
+        (parameter_list
+          (parameter
+            (predefined_type)
+            (identifier)))
+        (preproc_if
+          (identifier)
+          (block
+            (return_statement
+              (cast_expression
+                (identifier)
+                (identifier))))
+          (preproc_else
+            (type_parameter_constraints_clause
+              (identifier)
+              (type_parameter_constraint
+                (generic_name
+                  (identifier)
+                  (type_argument_list
+                    (identifier)))))
+            (block
+              (return_statement
+                (invocation_expression
+                  (member_access_expression
+                    (identifier)
+                    (identifier))
+                  (argument_list
+                    (argument
+                      (identifier)))))))))
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list
+          (parameter
+            (predefined_type)
+            (identifier)))
+        (preproc_if
+          (identifier)
+          (arrow_expression_clause
+            (binary_expression
+              (identifier)
+              (integer_literal)))
+          (preproc_else
+            (block
+              (return_statement
+                (binary_expression
+                  (identifier)
+                  (identifier))))))))))

@@ -787,6 +787,12 @@ export default grammar({
     arrow_expression_clause: $ => seq('=>', $.expression),
 
     _function_body: $ => choice(
+      $._plain_function_body,
+      // `void M() #if A { } #else => x; #endif`: the body differs per branch.
+      alias($.preproc_if_in_function_body, $.preproc_if),
+    ),
+
+    _plain_function_body: $ => choice(
       field('body', $.block),
       seq(field('body', $.arrow_expression_clause), ';'),
       ';',
@@ -2248,6 +2254,7 @@ export default grammar({
     ...preprocIf('', $ => $.declaration),
     ...preprocIf('_in_top_level', $ => choice($._top_level_item_no_statement, $.statement)),
     ...preprocIf('_in_expression', $ => $.expression, -2, false),
+    ...preprocIf('_in_function_body', $ => seq(repeat($.type_parameter_constraints_clause), $._plain_function_body), 0, false),
     // The block opens with an external `#if` that the scanner only emits when the
     // first thing inside is `else`, so a plain `#if` after an if-statement is
     // still a statement-level block.
