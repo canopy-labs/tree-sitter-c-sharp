@@ -90,6 +90,8 @@ export default grammar({
     [$._list_pattern_body, $.collection_expression],
 
     [$._reserved_identifier, $.modifier],
+    [$.preproc_if_in_expression, $.preproc_if_in_initializer],
+    [$.preproc_if_in_expression, $.preproc_if_in_collection],
     // canopy.2: `partial`, `async` and `required` are also plain identifiers
     // (a local named `partial` starts a statement). `async` is the hard one: it
     // is a lambda / anonymous-method modifier too, so the lambda rules below
@@ -1952,11 +1954,22 @@ export default grammar({
 
     collection_expression: $ => seq(
       '[',
-      optional(seq(
-        commaSep1($.collection_element),
-        optional(','),
-      )),
+      optional($._collection_items),
       ']',
+    ),
+
+    // A list of elements in which `#if` blocks may hold whole comma-terminated
+    // elements: `[ 1, #if X 2, 3, #endif ]`. Roslyn treats a directive as
+    // trivia, so the comma inside the block is legal.
+    _collection_items: $ => choice(
+      seq(
+        repeat1(choice(
+          seq($.collection_element, ','),
+          alias($.preproc_if_in_collection, $.preproc_if),
+        )),
+        optional($.collection_element),
+      ),
+      $.collection_element,
     ),
 
     collection_element: $ => choice(
@@ -1970,9 +1983,20 @@ export default grammar({
 
     initializer_expression: $ => seq(
       '{',
-      commaSep($.expression),
-      optional(','),
+      optional($._initializer_items),
       '}',
+    ),
+
+    // Same shape as `_collection_items`: `{ a, #if X b, #endif }`.
+    _initializer_items: $ => choice(
+      seq(
+        repeat1(choice(
+          seq($.expression, ','),
+          alias($.preproc_if_in_initializer, $.preproc_if),
+        )),
+        optional($.expression),
+      ),
+      $.expression,
     ),
 
     declaration_expression: $ => prec.dynamic(1, seq(
@@ -2211,6 +2235,8 @@ export default grammar({
     ...preprocIf('', $ => $.declaration),
     ...preprocIf('_in_top_level', $ => choice($._top_level_item_no_statement, $.statement)),
     ...preprocIf('_in_expression', $ => $.expression, -2, false),
+    ...preprocIf('_in_collection', $ => $._collection_items, -2, false),
+    ...preprocIf('_in_initializer', $ => $._initializer_items, -2, false),
     ...preprocIf('_in_enum_member_declaration', $ => $.enum_member_declaration, 0, false),
     ...preprocIf('_in_attribute_list', $ => $.attribute_list, -1, false),
 
