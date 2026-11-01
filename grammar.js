@@ -48,7 +48,6 @@ export default grammar({
     [$._simple_name, $.type_parameter],
     [$._simple_name, $.subpattern],
 
-    [$.tuple_element, $.type_pattern],
     [$.tuple_element, $.using_variable_declarator],
     [$.tuple_element, $.declaration_expression],
 
@@ -88,9 +87,22 @@ export default grammar({
 
     [$.expression_element, $.argument],
     [$.spread_element, $.range_expression],
-    [$.collection_expression, $.list_pattern],
+    [$._list_pattern_body, $.collection_expression],
 
     [$._reserved_identifier, $.modifier],
+    [$.preproc_if_in_expression, $.preproc_if_in_initializer],
+    [$.preproc_if_in_expression, $.preproc_if_in_collection],
+    // canopy.2: `partial`, `async` and `required` are also plain identifiers
+    // (a local named `partial` starts a statement). `async` is the hard one: it
+    // is a lambda / anonymous-method modifier too, so the lambda rules below
+    // lost their `prec(-1)` and GLR now picks between modifier and identifier.
+    [$._lambda_expression_init, $._reserved_identifier],
+    [$._reserved_identifier],
+    [$.modifier, $._lambda_expression_init],
+    [$._lambda_expression_init, $.anonymous_method_expression, $._reserved_identifier],
+    [$.modifier, $._lambda_expression_init, $.anonymous_method_expression],
+    [$.modifier, $._lambda_expression_init, $.anonymous_method_expression, $._reserved_identifier],
+    [$.modifier, $._lambda_expression_init, $._reserved_identifier],
     [$._reserved_identifier, $.scoped_type],
     [$._reserved_identifier, $.implicit_type],
     [$._reserved_identifier, $.from_clause],
@@ -134,6 +146,8 @@ export default grammar({
     // simple-lambda parameter list (at least one element has a parameter
     // modifier) closed by ')=>'.
     $._lambda_paren_open,
+    // `#if` immediately followed (after the condition line) by `else`.
+    $._preproc_else_if_start,
   ],
 
   extras: $ => [
@@ -313,7 +327,7 @@ export default grammar({
     _struct_declaration_initializer: $ => seq(
       repeat($._attribute_list),
       repeat($.modifier),
-      optional('ref'),
+      optional(seq('ref', repeat($.modifier))), // `ref partial struct`: `partial` must follow `ref`
       'struct',
       field('name', $.identifier),
       repeat(choice($.type_parameter_list, $.parameter_list, $.base_list)),
@@ -414,7 +428,7 @@ export default grammar({
       $.argument_list,
     ),
 
-    modifier: _ => prec.right(choice(
+    modifier: _ => prec.dynamic(1, prec.right(choice(
       'abstract',
       'async',
       'const',
@@ -438,7 +452,7 @@ export default grammar({
       'virtual',
       'volatile',
 
-    )),
+    ))),
 
     type_parameter_list: $ => seq('<', commaSep1($.type_parameter), '>'),
 
@@ -718,10 +732,12 @@ export default grammar({
     ),
 
     _parameter_type_with_modifiers: $ => seq(
-      repeat(prec.left(alias(
-        choice('this', 'scoped', 'ref', 'out', 'in', 'readonly'),
-        $.modifier,
-      ))),
+      repeat(choice(
+        prec.left(alias(choice('this', 'scoped', 'ref', 'readonly'), $.modifier)),
+        // `in`/`out` also start an `argument` (prec 1), which won the shift/reduce
+        // against this reduction and sent `(in T x) => ...` to ERROR.
+        prec.left(1, alias(choice('out', 'in'), $.modifier)),
+      )),
       field('type', $.type),
     ),
 
@@ -771,6 +787,12 @@ export default grammar({
     arrow_expression_clause: $ => seq('=>', $.expression),
 
     _function_body: $ => choice(
+      $._plain_function_body,
+      // `void M() #if A { } #else => x; #endif`: the body differs per branch.
+      alias($.preproc_if_in_function_body, $.preproc_if),
+    ),
+
+    _plain_function_body: $ => choice(
       field('body', $.block),
       seq(field('body', $.arrow_expression_clause), ';'),
       ';',
@@ -1056,7 +1078,22 @@ export default grammar({
       ')',
     ),
 
-    return_statement: $ => seq('return', optional($.expression), ';'),
+    return_statement: $ => seq(
+      'return',
+      choice(
+        seq(optional($.expression), ';'),
+        // `return c ? a : #if X b; #else d; #endif`: the `;` is inside each branch.
+        alias($._conditional_ending_in_preproc, $.conditional_expression),
+      ),
+    ),
+
+    _conditional_ending_in_preproc: $ => seq(
+      field('condition', $.expression),
+      '?',
+      field('consequence', $.expression),
+      ':',
+      field('alternative', alias($.preproc_if_in_statement_tail, $.preproc_if)),
+    ),
 
     lock_statement: $ => seq('lock', '(', $.expression, ')', $.statement),
 
@@ -1179,9 +1216,20 @@ export default grammar({
       field('condition', $.expression),
       ')',
       field('consequence', $.statement),
-      optional(seq(
-        'else',
-        field('alternative', $.statement),
+      optional(choice(
+        seq(
+          'else',
+          field('alternative', $.statement),
+        ),
+        // `if (a) { } #if X else if (b) { } #endif`: the `else` lives in the block.
+        // A plain `else` may still follow `#endif` and continue the chain.
+        seq(
+          alias($.preproc_if_in_else, $.preproc_if),
+          optional(seq(
+            'else',
+            field('alternative', $.statement),
+          )),
+        ),
       )),
     )),
 
@@ -1243,6 +1291,7 @@ export default grammar({
 
     constant_pattern: $ => choice(
       $.binary_expression,
+      $.checked_expression,
       $.default_expression,
       $.interpolated_string_expression,
       $.parenthesized_expression,
@@ -1284,17 +1333,26 @@ export default grammar({
 
     var_pattern: $ => seq('var', $._variable_designation),
 
-    type_pattern: $ => prec.right(field('type', $.type)),
+    // canopy.2: precedence 1 keeps `case int when x:` reading `when` as the
+    // clause keyword now that `async` joined `_reserved_identifier`.
+    type_pattern: $ => prec.right(1, field('type', $.type)),
 
-    list_pattern: $ => prec.right(seq(
+    // The designation-less form outranks the one with a designation so that, on
+    // `when`, the parser reduces here and lets `when_clause` take it instead of
+    // reading `when` as the designation: `[var a] when Is(a) => ...`.
+    list_pattern: $ => choice(
+      prec.right(2, $._list_pattern_body),
+      prec.right(1, seq($._list_pattern_body, $._variable_designation)),
+    ),
+
+    _list_pattern_body: $ => seq(
       '[',
       optional(seq(
         commaSep1(choice($.pattern, $.slice_pattern)),
         optional(','),
       )),
       ']',
-      optional($._variable_designation),
-    )),
+    ),
 
     // C# 11 slice pattern: `..` optionally followed by a subpattern that
     // binds the captured slice. `[a, .. var rest, z]`, `[..]` (bare),
@@ -1561,7 +1619,28 @@ export default grammar({
 
     _pointer_indirection_expression: $ => prec.right(PREC.UNARY, seq(
       '*',
-      $.lvalue_expression,
+      choice(
+        $.lvalue_expression,
+        // `*(p + 1)` and `*(T*)p`. The operand is not an lvalue, so the #413
+        // restriction above shut them out. They stay legal here, but with a
+        // negative dynamic precedence so `(a) * (b + c)` still reads as a
+        // multiplication rather than a cast of a dereference.
+        prec.dynamic(-2, $.parenthesized_expression),
+        prec.dynamic(-2, alias($._pointer_cast_expression, $.cast_expression)),
+      ),
+    )),
+
+    _pointer_cast_expression: $ => prec(PREC.CAST, seq(
+      '(',
+      field('type', $.pointer_type),
+      ')',
+      // Not a full `expression`: `*(T*)p = 1` must stay an assignment to the
+      // dereference, not a cast of `p = 1`.
+      field('value', choice(
+        $.lvalue_expression,
+        $.parenthesized_expression,
+        alias($._address_of_expression, $.prefix_unary_expression),
+      )),
     )),
 
     // Address-of is split out from `prefix_unary_expression` so that
@@ -1825,7 +1904,7 @@ export default grammar({
 
     _lambda_expression_init: $ => prec(-1, seq(
       repeat($._attribute_list),
-      repeat(prec(-1, alias(choice('static', 'async'), $.modifier))),
+      repeat(alias(choice('static', 'async'), $.modifier)),
       optional(field('type', $.type)),
       field('parameters', $._lambda_parameters),
     ),
@@ -1867,7 +1946,7 @@ export default grammar({
     )),
 
     anonymous_method_expression: $ => seq(
-      repeat(prec(-1, alias(choice('static', 'async'), $.modifier))),
+      repeat(alias(choice('static', 'async'), $.modifier)),
       'delegate',
       optional(field('parameters', $.parameter_list)),
       $.block,
@@ -1909,11 +1988,22 @@ export default grammar({
 
     collection_expression: $ => seq(
       '[',
-      optional(seq(
-        commaSep1($.collection_element),
-        optional(','),
-      )),
+      optional($._collection_items),
       ']',
+    ),
+
+    // A list of elements in which `#if` blocks may hold whole comma-terminated
+    // elements: `[ 1, #if X 2, 3, #endif ]`. Roslyn treats a directive as
+    // trivia, so the comma inside the block is legal.
+    _collection_items: $ => choice(
+      seq(
+        repeat1(choice(
+          seq($.collection_element, ','),
+          alias($.preproc_if_in_collection, $.preproc_if),
+        )),
+        optional($.collection_element),
+      ),
+      $.collection_element,
     ),
 
     collection_element: $ => choice(
@@ -1927,9 +2017,20 @@ export default grammar({
 
     initializer_expression: $ => seq(
       '{',
-      commaSep($.expression),
-      optional(','),
+      optional($._initializer_items),
       '}',
+    ),
+
+    // Same shape as `_collection_items`: `{ a, #if X b, #endif }`.
+    _initializer_items: $ => choice(
+      seq(
+        repeat1(choice(
+          seq($.expression, ','),
+          alias($.preproc_if_in_initializer, $.preproc_if),
+        )),
+        optional($.expression),
+      ),
+      $.expression,
     ),
 
     declaration_expression: $ => prec.dynamic(1, seq(
@@ -2125,6 +2226,7 @@ export default grammar({
     _reserved_identifier: _ => choice(
       'alias',
       'ascending',
+      'async',
       'by',
       'descending',
       'equals',
@@ -2148,7 +2250,9 @@ export default grammar({
       'on',
       'orderby',
       'param',
+      'partial',
       'property',
+      'required',
       'scoped',
       'select',
       'type',
@@ -2165,6 +2269,14 @@ export default grammar({
     ...preprocIf('', $ => $.declaration),
     ...preprocIf('_in_top_level', $ => choice($._top_level_item_no_statement, $.statement)),
     ...preprocIf('_in_expression', $ => $.expression, -2, false),
+    ...preprocIf('_in_statement_tail', $ => seq($.expression, ';'), 0, false),
+    ...preprocIf('_in_function_body', $ => seq(repeat($.type_parameter_constraints_clause), $._plain_function_body), 0, false),
+    // The block opens with an external `#if` that the scanner only emits when the
+    // first thing inside is `else`, so a plain `#if` after an if-statement is
+    // still a statement-level block.
+    ...preprocIf('_in_else', $ => seq('else', $.statement), 0, false, $ => $._preproc_else_if_start),
+    ...preprocIf('_in_collection', $ => $._collection_items, -2, false),
+    ...preprocIf('_in_initializer', $ => $._initializer_items, -2, false),
     ...preprocIf('_in_enum_member_declaration', $ => $.enum_member_declaration, 0, false),
     ...preprocIf('_in_attribute_list', $ => $.attribute_list, -1, false),
 
@@ -2321,7 +2433,7 @@ function preprocessor(command) {
  *
  * @returns {RuleBuilders<string, string>}
  */
-function preprocIf(suffix, content, precedence = 0, rep = true) {
+function preprocIf(suffix, content, precedence = 0, rep = true, ifToken = null) {
   /**
    *
    * @param {GrammarSymbols<string>} $
@@ -2337,7 +2449,7 @@ function preprocIf(suffix, content, precedence = 0, rep = true) {
 
   return {
     ['preproc_if' + suffix]: $ => prec(precedence, seq(
-      preprocessor('if'),
+      ifToken ? alias(ifToken($), '#if') : preprocessor('if'),
       field('condition', $._preproc_expression),
       /\n/,
       rep ? repeat(content($)) : optional(content($)),

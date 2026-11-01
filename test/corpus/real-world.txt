@@ -1,0 +1,805 @@
+================================================================================
+Lambda whose first parameter has an in or out modifier
+================================================================================
+
+class C {
+  void M() {
+    F((in Q q, int i) => 1);
+    var f = (out int a) => 1;
+    var g = (in int a) => a;
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list)
+        (block
+          (expression_statement
+            (invocation_expression
+              (identifier)
+              (argument_list
+                (argument
+                  (lambda_expression
+                    (parameter_list
+                      (parameter
+                        (modifier)
+                        (identifier)
+                        (identifier))
+                      (parameter
+                        (predefined_type)
+                        (identifier)))
+                    (integer_literal))))))
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (lambda_expression
+                  (parameter_list
+                    (parameter
+                      (modifier)
+                      (predefined_type)
+                      (identifier)))
+                  (integer_literal)))))
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (lambda_expression
+                  (parameter_list
+                    (parameter
+                      (modifier)
+                      (predefined_type)
+                      (identifier)))
+                  (identifier))))))))))
+
+================================================================================
+Dereference of a pointer cast or a parenthesized expression
+================================================================================
+
+unsafe class C {
+  void M() {
+    var data = *(MsllHookStruct*)lParam;
+    *(int*)p = 1;
+    var a = *(byte*)p + 1;
+    var d = *(p + 1);
+    var m = (a) * (b + c);
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (modifier)
+    (identifier)
+    (declaration_list
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list)
+        (block
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (prefix_unary_expression
+                  (cast_expression
+                    (pointer_type
+                      (identifier))
+                    (identifier))))))
+          (expression_statement
+            (assignment_expression
+              (prefix_unary_expression
+                (cast_expression
+                  (pointer_type
+                    (predefined_type))
+                  (identifier)))
+              (integer_literal)))
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (binary_expression
+                  (prefix_unary_expression
+                    (cast_expression
+                      (pointer_type
+                        (predefined_type))
+                      (identifier)))
+                  (integer_literal)))))
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (prefix_unary_expression
+                  (parenthesized_expression
+                    (binary_expression
+                      (identifier)
+                      (integer_literal)))))))
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (binary_expression
+                  (parenthesized_expression
+                    (identifier))
+                  (parenthesized_expression
+                    (binary_expression
+                      (identifier)
+                      (identifier))))))))))))
+
+================================================================================
+Modifier after ref on a struct declaration
+================================================================================
+
+internal readonly ref partial struct Scope { }
+public ref partial struct Other { }
+partial ref struct Third { }
+ref struct Plain { }
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (struct_declaration
+    (modifier)
+    (modifier)
+    (modifier)
+    (identifier)
+    (declaration_list))
+  (struct_declaration
+    (modifier)
+    (modifier)
+    (identifier)
+    (declaration_list))
+  (struct_declaration
+    (modifier)
+    (identifier)
+    (declaration_list))
+  (struct_declaration
+    (identifier)
+    (declaration_list)))
+
+================================================================================
+Checked and unchecked expressions as constant patterns
+================================================================================
+
+class C {
+  void M(Exception e) {
+    var a = e is ExternalException { HResult: unchecked((int)0x800401D0) };
+    var b = e is { HResult: checked(5) };
+    var c = e is unchecked(5);
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list
+          (parameter
+            (identifier)
+            (identifier)))
+        (block
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (is_pattern_expression
+                  (identifier)
+                  (recursive_pattern
+                    (identifier)
+                    (property_pattern_clause
+                      (subpattern
+                        (identifier)
+                        (constant_pattern
+                          (checked_expression
+                            (cast_expression
+                              (predefined_type)
+                              (integer_literal)))))))))))
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (is_pattern_expression
+                  (identifier)
+                  (recursive_pattern
+                    (property_pattern_clause
+                      (subpattern
+                        (identifier)
+                        (constant_pattern
+                          (checked_expression
+                            (integer_literal))))))))))
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (is_pattern_expression
+                  (identifier)
+                  (constant_pattern
+                    (checked_expression
+                      (integer_literal))))))))))))
+
+================================================================================
+List pattern followed by a when clause
+================================================================================
+
+class C {
+  void M(string[] path) {
+    var r = path switch {
+      [var background] when Is(background, "background") => 1,
+      [1, ..] when a.Is("b") => 2,
+      [var x, var y] => 3,
+      _ => 4,
+    };
+    var s = path is [1, 2] list;
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list
+          (parameter
+            (array_type
+              (predefined_type)
+              (array_rank_specifier))
+            (identifier)))
+        (block
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (switch_expression
+                  (identifier)
+                  (switch_expression_arm
+                    (list_pattern
+                      (declaration_pattern
+                        (implicit_type)
+                        (identifier)))
+                    (when_clause
+                      (invocation_expression
+                        (identifier)
+                        (argument_list
+                          (argument
+                            (identifier))
+                          (argument
+                            (string_literal
+                              (string_literal_content))))))
+                    (integer_literal))
+                  (switch_expression_arm
+                    (list_pattern
+                      (constant_pattern
+                        (integer_literal))
+                      (slice_pattern))
+                    (when_clause
+                      (invocation_expression
+                        (member_access_expression
+                          (identifier)
+                          (identifier))
+                        (argument_list
+                          (argument
+                            (string_literal
+                              (string_literal_content))))))
+                    (integer_literal))
+                  (switch_expression_arm
+                    (list_pattern
+                      (declaration_pattern
+                        (implicit_type)
+                        (identifier))
+                      (declaration_pattern
+                        (implicit_type)
+                        (identifier)))
+                    (integer_literal))
+                  (switch_expression_arm
+                    (discard)
+                    (integer_literal))))))
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (is_pattern_expression
+                  (identifier)
+                  (list_pattern
+                    (constant_pattern
+                      (integer_literal))
+                    (constant_pattern
+                      (integer_literal))
+                    (identifier)))))))))))
+
+================================================================================
+Preprocessor block holding whole elements at the end of a list
+================================================================================
+
+class C {
+  object[] a = { (Half)42, Half.NaN,
+#if HAVE_INT128
+    (Int128)42, Int128.MinValue,
+#endif
+  };
+  object[] b = [
+    6, 5.001,
+#if !NETFRAMEWORK
+    (Half)6,
+    (UInt128)6,
+#else
+    (int)6,
+#endif
+  ];
+  object[] c = { 1,
+#if X
+    2,
+#endif
+    3 };
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (field_declaration
+        (variable_declaration
+          (array_type
+            (predefined_type)
+            (array_rank_specifier))
+          (variable_declarator
+            (identifier)
+            (initializer_expression
+              (cast_expression
+                (identifier)
+                (integer_literal))
+              (member_access_expression
+                (identifier)
+                (identifier))
+              (preproc_if
+                (identifier)
+                (cast_expression
+                  (identifier)
+                  (integer_literal))
+                (member_access_expression
+                  (identifier)
+                  (identifier)))))))
+      (field_declaration
+        (variable_declaration
+          (array_type
+            (predefined_type)
+            (array_rank_specifier))
+          (variable_declarator
+            (identifier)
+            (collection_expression
+              (collection_element
+                (expression_element
+                  (integer_literal)))
+              (collection_element
+                (expression_element
+                  (real_literal)))
+              (preproc_if
+                (unary_expression
+                  (identifier))
+                (collection_element
+                  (expression_element
+                    (cast_expression
+                      (identifier)
+                      (integer_literal))))
+                (collection_element
+                  (expression_element
+                    (cast_expression
+                      (identifier)
+                      (integer_literal))))
+                (preproc_else
+                  (collection_element
+                    (expression_element
+                      (cast_expression
+                        (predefined_type)
+                        (integer_literal))))))))))
+      (field_declaration
+        (variable_declaration
+          (array_type
+            (predefined_type)
+            (array_rank_specifier))
+          (variable_declarator
+            (identifier)
+            (initializer_expression
+              (integer_literal)
+              (preproc_if
+                (identifier)
+                (integer_literal))
+              (integer_literal))))))))
+
+================================================================================
+Else clause inside a preprocessor block
+================================================================================
+
+class C {
+  void M(object arg, bool hadHandler) {
+    if (!hadHandler) {
+      Refresh();
+    }
+#if DEBUG
+    else if (arg is not null) {
+      Log();
+    }
+#endif
+    if (a) { x = 1; }
+#if !NETFRAMEWORK
+    else if (arg is not null && Try(arg, out var v)) { x = v; }
+#else
+    else if (arg is double d) { x = 2; }
+    else if (arg is float f) { x = 3; }
+#endif
+    else if (arg is string s) { x = 4; }
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list
+          (parameter
+            (predefined_type)
+            (identifier))
+          (parameter
+            (predefined_type)
+            (identifier)))
+        (block
+          (if_statement
+            (prefix_unary_expression
+              (identifier))
+            (block
+              (expression_statement
+                (invocation_expression
+                  (identifier)
+                  (argument_list))))
+            (preproc_if
+              (identifier)
+              (if_statement
+                (is_pattern_expression
+                  (identifier)
+                  (negated_pattern
+                    (constant_pattern
+                      (null_literal))))
+                (block
+                  (expression_statement
+                    (invocation_expression
+                      (identifier)
+                      (argument_list)))))))
+          (if_statement
+            (identifier)
+            (block
+              (expression_statement
+                (assignment_expression
+                  (identifier)
+                  (integer_literal))))
+            (preproc_if
+              (unary_expression
+                (identifier))
+              (if_statement
+                (is_pattern_expression
+                  (identifier)
+                  (negated_pattern
+                    (constant_pattern
+                      (binary_expression
+                        (null_literal)
+                        (invocation_expression
+                          (identifier)
+                          (argument_list
+                            (argument
+                              (identifier))
+                            (argument
+                              (declaration_expression
+                                (implicit_type)
+                                (identifier)))))))))
+                (block
+                  (expression_statement
+                    (assignment_expression
+                      (identifier)
+                      (identifier)))))
+              (preproc_else
+                (if_statement
+                  (is_pattern_expression
+                    (identifier)
+                    (declaration_pattern
+                      (predefined_type)
+                      (identifier)))
+                  (block
+                    (expression_statement
+                      (assignment_expression
+                        (identifier)
+                        (integer_literal))))
+                  (if_statement
+                    (is_pattern_expression
+                      (identifier)
+                      (declaration_pattern
+                        (predefined_type)
+                        (identifier)))
+                    (block
+                      (expression_statement
+                        (assignment_expression
+                          (identifier)
+                          (integer_literal))))))))
+            (if_statement
+              (is_pattern_expression
+                (identifier)
+                (declaration_pattern
+                  (predefined_type)
+                  (identifier)))
+              (block
+                (expression_statement
+                  (assignment_expression
+                    (identifier)
+                    (integer_literal)))))))))))
+
+================================================================================
+Statement-level #if after an if statement is not an else block
+================================================================================
+
+class C {
+  bool M(Type t) {
+    if (t == typeof(DateTime)) {
+      return true;
+    }
+#if HAVE_DATE_TIME_OFFSET
+    if (t == typeof(DateTimeOffset)) {
+      return true;
+    }
+#endif
+    if (a) b();
+    else c();
+    return false;
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list
+          (parameter
+            (identifier)
+            (identifier)))
+        (block
+          (if_statement
+            (binary_expression
+              (identifier)
+              (typeof_expression
+                (identifier)))
+            (block
+              (return_statement
+                (boolean_literal))))
+          (preproc_if
+            (identifier)
+            (if_statement
+              (binary_expression
+                (identifier)
+                (typeof_expression
+                  (identifier)))
+              (block
+                (return_statement
+                  (boolean_literal)))))
+          (if_statement
+            (identifier)
+            (expression_statement
+              (invocation_expression
+                (identifier)
+                (argument_list)))
+            (expression_statement
+              (invocation_expression
+                (identifier)
+                (argument_list))))
+          (return_statement
+            (boolean_literal)))))))
+
+================================================================================
+Method body that differs per preprocessor branch
+================================================================================
+
+class C {
+  internal static T Convert<T>(object o)
+#if NETFRAMEWORK
+  {
+    return (T)o;
+  }
+#else
+      where T : INumber<T>
+  {
+    return T.CreateChecked(o);
+  }
+#endif
+
+  int Twice(int x)
+#if A
+    => x * 2;
+#else
+    { return x + x; }
+#endif
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (method_declaration
+        (modifier)
+        (modifier)
+        (identifier)
+        (identifier)
+        (type_parameter_list
+          (type_parameter
+            (identifier)))
+        (parameter_list
+          (parameter
+            (predefined_type)
+            (identifier)))
+        (preproc_if
+          (identifier)
+          (block
+            (return_statement
+              (cast_expression
+                (identifier)
+                (identifier))))
+          (preproc_else
+            (type_parameter_constraints_clause
+              (identifier)
+              (type_parameter_constraint
+                (generic_name
+                  (identifier)
+                  (type_argument_list
+                    (identifier)))))
+            (block
+              (return_statement
+                (invocation_expression
+                  (member_access_expression
+                    (identifier)
+                    (identifier))
+                  (argument_list
+                    (argument
+                      (identifier)))))))))
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list
+          (parameter
+            (predefined_type)
+            (identifier)))
+        (preproc_if
+          (identifier)
+          (arrow_expression_clause
+            (binary_expression
+              (identifier)
+              (integer_literal)))
+          (preproc_else
+            (block
+              (return_statement
+                (binary_expression
+                  (identifier)
+                  (identifier))))))))))
+
+================================================================================
+Return of a conditional whose arms end inside a preprocessor block
+================================================================================
+
+class C {
+  Task<int> ReadAsync(TextReader reader, CancellationToken ct) {
+    return ct.IsCancellationRequested ? FromCanceled<int>(ct) :
+#if NET6_0_OR_GREATER
+      reader.ReadAsync(buffer, ct).AsTask();
+#else
+      reader.ReadAsync(buffer);
+#endif
+  }
+  int Plain(bool a) {
+    return a ? 1 : 2;
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (method_declaration
+        (generic_name
+          (identifier)
+          (type_argument_list
+            (predefined_type)))
+        (identifier)
+        (parameter_list
+          (parameter
+            (identifier)
+            (identifier))
+          (parameter
+            (identifier)
+            (identifier)))
+        (block
+          (return_statement
+            (conditional_expression
+              (member_access_expression
+                (identifier)
+                (identifier))
+              (invocation_expression
+                (generic_name
+                  (identifier)
+                  (type_argument_list
+                    (predefined_type)))
+                (argument_list
+                  (argument
+                    (identifier))))
+              (preproc_if
+                (identifier)
+                (invocation_expression
+                  (member_access_expression
+                    (invocation_expression
+                      (member_access_expression
+                        (identifier)
+                        (identifier))
+                      (argument_list
+                        (argument
+                          (identifier))
+                        (argument
+                          (identifier))))
+                    (identifier))
+                  (argument_list))
+                (preproc_else
+                  (invocation_expression
+                    (member_access_expression
+                      (identifier)
+                      (identifier))
+                    (argument_list
+                      (argument
+                        (identifier))))))))))
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list
+          (parameter
+            (predefined_type)
+            (identifier)))
+        (block
+          (return_statement
+            (conditional_expression
+              (identifier)
+              (integer_literal)
+              (integer_literal))))))))
