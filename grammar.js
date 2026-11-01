@@ -329,9 +329,9 @@ export default grammar({
       repeat($._attribute_list),
       repeat($.modifier),
       // C# requires `partial` to be the LAST modifier before the type keyword,
-      // so the legal order is `ref partial struct` — `ref` cannot live inside
-      // the modifier repeat without swallowing ref types elsewhere.
-      optional(seq('ref', optional('partial'))),
+      // so the legal order is `ref partial struct`. canopy: `partial` (or any
+      // modifier) after `ref` stays a `modifier` node, like the ones before it.
+      optional(seq('ref', repeat($.modifier))),
       'struct',
       field('name', $.identifier),
       repeat(choice($.type_parameter_list, $.parameter_list, $.base_list)),
