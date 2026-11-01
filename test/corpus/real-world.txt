@@ -1,0 +1,62 @@
+================================================================================
+Lambda whose first parameter has an in or out modifier
+================================================================================
+
+class C {
+  void M() {
+    F((in Q q, int i) => 1);
+    var f = (out int a) => 1;
+    var g = (in int a) => a;
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list)
+        (block
+          (expression_statement
+            (invocation_expression
+              (identifier)
+              (argument_list
+                (argument
+                  (lambda_expression
+                    (parameter_list
+                      (parameter
+                        (modifier)
+                        (identifier)
+                        (identifier))
+                      (parameter
+                        (predefined_type)
+                        (identifier)))
+                    (integer_literal))))))
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (lambda_expression
+                  (parameter_list
+                    (parameter
+                      (modifier)
+                      (predefined_type)
+                      (identifier)))
+                  (integer_literal)))))
+          (local_declaration_statement
+            (variable_declaration
+              (implicit_type)
+              (variable_declarator
+                (identifier)
+                (lambda_expression
+                  (parameter_list
+                    (parameter
+                      (modifier)
+                      (predefined_type)
+                      (identifier)))
+                  (identifier))))))))))
