@@ -715,3 +715,91 @@ class C {
                 (binary_expression
                   (identifier)
                   (identifier))))))))))
+
+================================================================================
+Return of a conditional whose arms end inside a preprocessor block
+================================================================================
+
+class C {
+  Task<int> ReadAsync(TextReader reader, CancellationToken ct) {
+    return ct.IsCancellationRequested ? FromCanceled<int>(ct) :
+#if NET6_0_OR_GREATER
+      reader.ReadAsync(buffer, ct).AsTask();
+#else
+      reader.ReadAsync(buffer);
+#endif
+  }
+  int Plain(bool a) {
+    return a ? 1 : 2;
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (method_declaration
+        (generic_name
+          (identifier)
+          (type_argument_list
+            (predefined_type)))
+        (identifier)
+        (parameter_list
+          (parameter
+            (identifier)
+            (identifier))
+          (parameter
+            (identifier)
+            (identifier)))
+        (block
+          (return_statement
+            (conditional_expression
+              (member_access_expression
+                (identifier)
+                (identifier))
+              (invocation_expression
+                (generic_name
+                  (identifier)
+                  (type_argument_list
+                    (predefined_type)))
+                (argument_list
+                  (argument
+                    (identifier))))
+              (preproc_if
+                (identifier)
+                (invocation_expression
+                  (member_access_expression
+                    (invocation_expression
+                      (member_access_expression
+                        (identifier)
+                        (identifier))
+                      (argument_list
+                        (argument
+                          (identifier))
+                        (argument
+                          (identifier))))
+                    (identifier))
+                  (argument_list))
+                (preproc_else
+                  (invocation_expression
+                    (member_access_expression
+                      (identifier)
+                      (identifier))
+                    (argument_list
+                      (argument
+                        (identifier))))))))))
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list
+          (parameter
+            (predefined_type)
+            (identifier)))
+        (block
+          (return_statement
+            (conditional_expression
+              (identifier)
+              (integer_literal)
+              (integer_literal))))))))

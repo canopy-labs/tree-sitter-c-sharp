@@ -1078,7 +1078,22 @@ export default grammar({
       ')',
     ),
 
-    return_statement: $ => seq('return', optional($.expression), ';'),
+    return_statement: $ => seq(
+      'return',
+      choice(
+        seq(optional($.expression), ';'),
+        // `return c ? a : #if X b; #else d; #endif`: the `;` is inside each branch.
+        alias($._conditional_ending_in_preproc, $.conditional_expression),
+      ),
+    ),
+
+    _conditional_ending_in_preproc: $ => seq(
+      field('condition', $.expression),
+      '?',
+      field('consequence', $.expression),
+      ':',
+      field('alternative', alias($.preproc_if_in_statement_tail, $.preproc_if)),
+    ),
 
     lock_statement: $ => seq('lock', '(', $.expression, ')', $.statement),
 
@@ -2254,6 +2269,7 @@ export default grammar({
     ...preprocIf('', $ => $.declaration),
     ...preprocIf('_in_top_level', $ => choice($._top_level_item_no_statement, $.statement)),
     ...preprocIf('_in_expression', $ => $.expression, -2, false),
+    ...preprocIf('_in_statement_tail', $ => seq($.expression, ';'), 0, false),
     ...preprocIf('_in_function_body', $ => seq(repeat($.type_parameter_constraints_clause), $._plain_function_body), 0, false),
     // The block opens with an external `#if` that the scanner only emits when the
     // first thing inside is `else`, so a plain `#if` after an if-statement is
