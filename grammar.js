@@ -2274,7 +2274,7 @@ export default grammar({
     // The block opens with an external `#if` that the scanner only emits when the
     // first thing inside is `else`, so a plain `#if` after an if-statement is
     // still a statement-level block.
-    ...preprocIf('_in_else', $ => seq('else', field('alternative', $.statement)), 0, false, $ => $._preproc_else_if_start),
+    ...preprocIf('_in_else', $ => seq('else', $.statement), 0, false, $ => $._preproc_else_if_start),
     ...preprocIf('_in_collection', $ => $._collection_items, -2, false),
     ...preprocIf('_in_initializer', $ => $._initializer_items, -2, false),
     ...preprocIf('_in_enum_member_declaration', $ => $.enum_member_declaration, 0, false),

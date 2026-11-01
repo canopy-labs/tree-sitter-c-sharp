@@ -4774,7 +4774,7 @@
     "named": true,
     "fields": {
       "alternative": {
-        "multiple": true,
+        "multiple": false,
         "required": false,
         "types": [
           {
@@ -4783,10 +4783,6 @@
           },
           {
             "type": "preproc_else",
-            "named": true
-          },
-          {
-            "type": "statement",
             "named": true
           }
         ]
@@ -4895,16 +4891,6 @@
     "type": "preproc_else",
     "named": true,
     "fields": {
-      "alternative": {
-        "multiple": false,
-        "required": false,
-        "types": [
-          {
-            "type": "statement",
-            "named": true
-          }
-        ]
-      },
       "body": {
         "multiple": false,
         "required": false,
@@ -5009,7 +4995,7 @@
     "named": true,
     "fields": {
       "alternative": {
-        "multiple": true,
+        "multiple": false,
         "required": false,
         "types": [
           {
@@ -5018,10 +5004,6 @@
           },
           {
             "type": "preproc_else",
-            "named": true
-          },
-          {
-            "type": "statement",
             "named": true
           }
         ]

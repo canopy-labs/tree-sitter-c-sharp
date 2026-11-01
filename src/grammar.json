@@ -12088,12 +12088,8 @@
                     "value": "else"
                   },
                   {
-                    "type": "FIELD",
-                    "name": "alternative",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "statement"
-                    }
+                    "type": "SYMBOL",
+                    "name": "statement"
                   }
                 ]
               },
@@ -12175,12 +12171,8 @@
                     "value": "else"
                   },
                   {
-                    "type": "FIELD",
-                    "name": "alternative",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "statement"
-                    }
+                    "type": "SYMBOL",
+                    "name": "statement"
                   }
                 ]
               },
@@ -12230,12 +12222,8 @@
                     "value": "else"
                   },
                   {
-                    "type": "FIELD",
-                    "name": "alternative",
-                    "content": {
-                      "type": "SYMBOL",
-                      "name": "statement"
-                    }
+                    "type": "SYMBOL",
+                    "name": "statement"
                   }
                 ]
               },
