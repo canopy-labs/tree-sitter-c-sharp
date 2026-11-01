@@ -139,3 +139,34 @@ unsafe class C {
                     (binary_expression
                       (identifier)
                       (identifier))))))))))))
+
+================================================================================
+Modifier after ref on a struct declaration
+================================================================================
+
+internal readonly ref partial struct Scope { }
+public ref partial struct Other { }
+partial ref struct Third { }
+ref struct Plain { }
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (struct_declaration
+    (modifier)
+    (modifier)
+    (modifier)
+    (identifier)
+    (declaration_list))
+  (struct_declaration
+    (modifier)
+    (modifier)
+    (identifier)
+    (declaration_list))
+  (struct_declaration
+    (modifier)
+    (identifier)
+    (declaration_list))
+  (struct_declaration
+    (identifier)
+    (declaration_list)))
