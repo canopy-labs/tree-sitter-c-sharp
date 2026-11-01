@@ -146,6 +146,8 @@ export default grammar({
     // simple-lambda parameter list (at least one element has a parameter
     // modifier) closed by ')=>'.
     $._lambda_paren_open,
+    // `#if` immediately followed (after the condition line) by `else`.
+    $._preproc_else_if_start,
   ],
 
   extras: $ => [
@@ -2246,7 +2248,10 @@ export default grammar({
     ...preprocIf('', $ => $.declaration),
     ...preprocIf('_in_top_level', $ => choice($._top_level_item_no_statement, $.statement)),
     ...preprocIf('_in_expression', $ => $.expression, -2, false),
-    ...preprocIf('_in_else', $ => seq('else', field('alternative', $.statement)), 0, false),
+    // The block opens with an external `#if` that the scanner only emits when the
+    // first thing inside is `else`, so a plain `#if` after an if-statement is
+    // still a statement-level block.
+    ...preprocIf('_in_else', $ => seq('else', field('alternative', $.statement)), 0, false, $ => $._preproc_else_if_start),
     ...preprocIf('_in_collection', $ => $._collection_items, -2, false),
     ...preprocIf('_in_initializer', $ => $._initializer_items, -2, false),
     ...preprocIf('_in_enum_member_declaration', $ => $.enum_member_declaration, 0, false),
@@ -2405,7 +2410,7 @@ function preprocessor(command) {
  *
  * @returns {RuleBuilders<string, string>}
  */
-function preprocIf(suffix, content, precedence = 0, rep = true) {
+function preprocIf(suffix, content, precedence = 0, rep = true, ifToken = null) {
   /**
    *
    * @param {GrammarSymbols<string>} $
@@ -2421,7 +2426,7 @@ function preprocIf(suffix, content, precedence = 0, rep = true) {
 
   return {
     ['preproc_if' + suffix]: $ => prec(precedence, seq(
-      preprocessor('if'),
+      ifToken ? alias(ifToken($), '#if') : preprocessor('if'),
       field('condition', $._preproc_expression),
       /\n/,
       rep ? repeat(content($)) : optional(content($)),

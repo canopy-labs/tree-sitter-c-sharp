@@ -563,3 +563,68 @@ class C {
                   (assignment_expression
                     (identifier)
                     (integer_literal)))))))))))
+
+================================================================================
+Statement-level #if after an if statement is not an else block
+================================================================================
+
+class C {
+  bool M(Type t) {
+    if (t == typeof(DateTime)) {
+      return true;
+    }
+#if HAVE_DATE_TIME_OFFSET
+    if (t == typeof(DateTimeOffset)) {
+      return true;
+    }
+#endif
+    if (a) b();
+    else c();
+    return false;
+  }
+}
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list
+          (parameter
+            (identifier)
+            (identifier)))
+        (block
+          (if_statement
+            (binary_expression
+              (identifier)
+              (typeof_expression
+                (identifier)))
+            (block
+              (return_statement
+                (boolean_literal))))
+          (preproc_if
+            (identifier)
+            (if_statement
+              (binary_expression
+                (identifier)
+                (typeof_expression
+                  (identifier)))
+              (block
+                (return_statement
+                  (boolean_literal)))))
+          (if_statement
+            (identifier)
+            (expression_statement
+              (invocation_expression
+                (identifier)
+                (argument_list)))
+            (expression_statement
+              (invocation_expression
+                (identifier)
+                (argument_list))))
+          (return_statement
+            (boolean_literal)))))))

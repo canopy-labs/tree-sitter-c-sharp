@@ -11531,8 +11531,8 @@
           {
             "type": "ALIAS",
             "content": {
-              "type": "PATTERN",
-              "value": "#[ \t]*if"
+              "type": "SYMBOL",
+              "name": "_preproc_else_if_start"
             },
             "named": false,
             "value": "#if"
@@ -13631,6 +13631,10 @@
     {
       "type": "SYMBOL",
       "name": "_lambda_paren_open"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_preproc_else_if_start"
     }
   ],
   "inline": [
