@@ -92,6 +92,17 @@ export default grammar({
     [$._reserved_identifier, $.modifier],
     [$.preproc_if_in_expression, $.preproc_if_in_initializer],
     [$.preproc_if_in_expression, $.preproc_if_in_collection],
+    // canopy.2: `partial`, `async` and `required` are also plain identifiers
+    // (a local named `partial` starts a statement). `async` is the hard one: it
+    // is a lambda / anonymous-method modifier too, so the lambda rules below
+    // lost their `prec(-1)` and GLR now picks between modifier and identifier.
+    [$._lambda_expression_init, $._reserved_identifier],
+    [$._reserved_identifier],
+    [$.modifier, $._lambda_expression_init],
+    [$._lambda_expression_init, $.anonymous_method_expression, $._reserved_identifier],
+    [$.modifier, $._lambda_expression_init, $.anonymous_method_expression],
+    [$.modifier, $._lambda_expression_init, $.anonymous_method_expression, $._reserved_identifier],
+    [$.modifier, $._lambda_expression_init, $._reserved_identifier],
     [$._reserved_identifier, $.scoped_type],
     [$._reserved_identifier, $.implicit_type],
     [$._reserved_identifier, $.from_clause],
@@ -421,7 +432,7 @@ export default grammar({
       $.argument_list,
     ),
 
-    modifier: _ => prec.right(choice(
+    modifier: _ => prec.dynamic(1, prec.right(choice(
       'abstract',
       'async',
       'const',
@@ -445,7 +456,7 @@ export default grammar({
       'virtual',
       'volatile',
 
-    )),
+    ))),
 
     type_parameter_list: $ => seq('<', commaSep1($.type_parameter), '>'),
 
@@ -1897,7 +1908,7 @@ export default grammar({
 
     _lambda_expression_init: $ => prec(-1, seq(
       repeat($._attribute_list),
-      repeat(prec(-1, alias(choice('static', 'async'), $.modifier))),
+      repeat(alias(choice('static', 'async'), $.modifier)),
       optional(field('type', $.type)),
       field('parameters', $._lambda_parameters),
     ),
@@ -1939,7 +1950,7 @@ export default grammar({
     )),
 
     anonymous_method_expression: $ => seq(
-      repeat(prec(-1, alias(choice('static', 'async'), $.modifier))),
+      repeat(alias(choice('static', 'async'), $.modifier)),
       'delegate',
       optional(field('parameters', $.parameter_list)),
       $.block,
@@ -2219,6 +2230,7 @@ export default grammar({
     _reserved_identifier: _ => choice(
       'alias',
       'ascending',
+      'async',
       'by',
       'descending',
       'equals',
@@ -2242,7 +2254,9 @@ export default grammar({
       'on',
       'orderby',
       'param',
+      'partial',
       'property',
+      'required',
       'scoped',
       'select',
       'type',
