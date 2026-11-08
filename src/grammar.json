@@ -13048,15 +13048,31 @@
       }
     },
     "preproc_arg": {
-      "type": "TOKEN",
-      "content": {
-        "type": "PREC",
-        "value": -1,
-        "content": {
-          "type": "PATTERN",
-          "value": "\\S([^/\\n]|\\/[^*]|\\\\\\r?\\n)*"
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "TOKEN",
+          "content": {
+            "type": "PREC",
+            "value": -1,
+            "content": {
+              "type": "PATTERN",
+              "value": "\\S([^\\n]|\\\\\\r?\\n)*"
+            }
+          }
+        },
+        {
+          "type": "TOKEN",
+          "content": {
+            "type": "PREC",
+            "value": 1,
+            "content": {
+              "type": "PATTERN",
+              "value": "\\/\\*([^\\n]|\\\\\\r?\\n)*"
+            }
+          }
         }
-      }
+      ]
     },
     "preproc_directive": {
       "type": "PATTERN",
@@ -13586,6 +13602,30 @@
           ]
         },
         {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "ALIAS",
+              "content": {
+                "type": "TOKEN",
+                "content": {
+                  "type": "PREC",
+                  "value": 1,
+                  "content": {
+                    "type": "PATTERN",
+                    "value": "\\/\\*[^\\n]*"
+                  }
+                }
+              },
+              "named": true,
+              "value": "preproc_arg"
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
           "type": "PATTERN",
           "value": "\\n"
         }
@@ -13732,6 +13772,19 @@
         {
           "type": "PATTERN",
           "value": "\\n"
+        }
+      ]
+    },
+    "_skipped_text": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "SYMBOL",
+          "name": "_skipped_text_hazard"
+        },
+        {
+          "type": "SYMBOL",
+          "name": "_skipped_text_never"
         }
       ]
     },
@@ -14050,6 +14103,10 @@
     {
       "type": "SYMBOL",
       "name": "ignored_directive"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_skipped_text"
     }
   ],
   "conflicts": [
@@ -14372,6 +14429,14 @@
     {
       "type": "SYMBOL",
       "name": "_preproc_else_if_start"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_skipped_text_hazard"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_skipped_text_never"
     }
   ],
   "inline": [
