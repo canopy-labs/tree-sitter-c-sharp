@@ -218,3 +218,176 @@ Shebang directive
 
 (compilation_unit
   (shebang_directive))
+
+================================================================================
+A block comment opener is text on a directive line
+================================================================================
+
+class C {
+#region /*
+  void A() {}
+#endregion // */
+#region a /* b
+  void B() {}
+#endregion
+#pragma warning disable CS0168 /*
+  void D() {}
+#warning /*
+  void E() {}
+// */
+#region // still a comment
+#endregion
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (preproc_region
+        (preproc_arg))
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list)
+        (block))
+      (preproc_endregion
+        (comment))
+      (preproc_region
+        (preproc_arg))
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list)
+        (block))
+      (preproc_endregion)
+      (preproc_pragma
+        (identifier)
+        (preproc_arg))
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list)
+        (block))
+      (preproc_warning
+        (preproc_arg))
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list)
+        (block))
+      (comment)
+      (preproc_region
+        (comment))
+      (preproc_endregion))))
+
+================================================================================
+A comment holding a whole #if block is one comment
+================================================================================
+
+/*
+#if DEBUG
+  A();
+#else
+  B();
+#endif
+#region x
+*/
+class C {}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (comment)
+  (class_declaration
+    (identifier)
+    (declaration_list)))
+
+================================================================================
+A comment holding an #endif it did not open is an error
+:error
+================================================================================
+
+class C {
+#if false
+/*
+#endif
+  void M() {}
+#if false
+*/
+#endif
+}
+--------------------------------------------------------------------------------
+
+
+
+================================================================================
+A comment holding an #else it did not open is an error
+:error
+================================================================================
+
+class C {
+/*
+  #else
+*/
+  void M() {}
+}
+--------------------------------------------------------------------------------
+
+
+
+================================================================================
+A comment in a statement holding an #elif it did not open is an error
+:error
+================================================================================
+
+class C {
+  void N() {
+#if false
+    /*
+#elif true
+    M();
+#endif
+#if false
+    */
+#endif
+  }
+}
+--------------------------------------------------------------------------------
+
+
+
+================================================================================
+A verbatim string holding an #endif it did not open is an error
+:error
+================================================================================
+
+class C {
+#if false
+  string s = @"
+#endif
+  void M() {}
+#if false
+";
+#endif
+}
+--------------------------------------------------------------------------------
+
+
+
+================================================================================
+A raw string holding an #endif it did not open is an error
+:error
+================================================================================
+
+class C {
+#if false
+  string s = """
+#endif
+  void M() {}
+#if false
+  """;
+#endif
+}
+--------------------------------------------------------------------------------
+
+

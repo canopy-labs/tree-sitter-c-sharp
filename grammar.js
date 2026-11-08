@@ -148,6 +148,14 @@ export default grammar({
     $._lambda_paren_open,
     // `#if` immediately followed (after the condition line) by `else`.
     $._preproc_else_if_start,
+    // The start of `_skipped_text`, which can never complete. The scanner returns it for a
+    // `/* */` comment, verbatim string or raw string spanning a line that is an `#else`,
+    // `#elif` or `#endif` the token itself did not open with an `#if`. In a branch the
+    // compiler skips, that line ends the branch and the text after it is code, so no single
+    // tree is right: the token would hide code that compiles.
+    $._skipped_text_hazard,
+    // Never returned: what makes `_skipped_text` an error wherever it starts.
+    $._skipped_text_never,
   ],
 
   extras: $ => [
@@ -162,6 +170,7 @@ export default grammar({
     $.preproc_warning,
     $.preproc_define,
     $.preproc_undef,
+    $._skipped_text,
   ],
 
   inline: $ => [
@@ -2280,7 +2289,14 @@ export default grammar({
     ...preprocIf('_in_enum_member_declaration', $ => $.enum_member_declaration, 0, false),
     ...preprocIf('_in_attribute_list', $ => $.attribute_list, -1, false),
 
-    preproc_arg: _ => token(prec(-1, /\S([^/\n]|\/[^*]|\\\r?\n)*/)),
+    // A directive's text runs to the end of the line. C# has no `/* */` comment on a directive
+    // line, so `/*` there is text: as a comment it hid every line up to the next `*/` from the
+    // tree while the compiler builds them. The second token outranks `comment` for that; a `//`
+    // at the start is still a comment, as the first token ranks below it.
+    preproc_arg: _ => choice(
+      token(prec(-1, /\S([^\n]|\\\r?\n)*/)),
+      token(prec(1, /\/\*([^\n]|\\\r?\n)*/)),
+    ),
     preproc_directive: _ => /#[ \t]*[a-zA-Z0-9]\w*/,
 
     _preproc_expression: $ => choice(
@@ -2363,6 +2379,8 @@ export default grammar({
             ))),
         seq('checksum', $.string_literal, $.string_literal, $.string_literal),
       ),
+      // `/*` after the pragma is text the compiler warns about (CS1696), not a comment.
+      optional(alias(token(prec(1, /\/\*[^\n]*/)), $.preproc_arg)),
       /\n/,
     ),
 
@@ -2396,6 +2414,10 @@ export default grammar({
       $.preproc_arg,
       /\n/,
     ),
+
+    // An extra so the scanner is asked about it in every state, and one that cannot complete,
+    // so a token it starts is always an ERROR: see `_skipped_text_hazard`.
+    _skipped_text: $ => seq($._skipped_text_hazard, $._skipped_text_never),
 
     shebang_directive: _ => token(seq('#!', /.*/)),
 

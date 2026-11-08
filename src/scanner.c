@@ -20,6 +20,8 @@ enum TokenType {
     RAW_STRING_CONTENT,
     LAMBDA_PAREN_OPEN,
     PREPROC_ELSE_IF_START,
+    SKIPPED_TEXT_HAZARD,
+    SKIPPED_TEXT_NEVER,
 };
 
 typedef enum {
@@ -113,6 +115,117 @@ static size_t consume_identifier_into(TSLexer *lexer, char *buf, size_t max) {
 static bool buf_equals(const char *buf, size_t n, const char *kw) {
     size_t klen = strlen(kw);
     return n == klen && memcmp(buf, kw, klen) == 0;
+}
+
+// C# line terminators and the whitespace that may precede a directive's `#`.
+static inline bool is_line_break(int32_t c) {
+    return c == '\n' || c == '\r' || c == 0x85 || c == 0x2028 || c == 0x2029;
+}
+
+static inline bool is_line_space(int32_t c) {
+    return c == ' ' || c == '\t' || c == '\v' || c == '\f' || c == 0xA0 || c == 0x1680 ||
+           (c >= 0x2000 && c <= 0x200A) || c == 0x202F || c == 0x205F || c == 0x3000;
+}
+
+// The lines of a multi-line token (a `/* */` comment, a verbatim or a raw string), checked for a
+// conditional directive. In a branch the compiler skips, such a token is not a token at all: the
+// skipped text is only scanned for directives, so an `#else`, `#elif` or `#endif` line inside it
+// ends the branch and what follows is code. The grammar cannot tell a skipped branch from an
+// active one, so a token holding such a line that it did not open itself has no single right
+// tree. `#if`/`#endif` pairs inside the token are balanced, as the compiler balances them in
+// skipped text, so commented-out code holding a whole `#if` block is still one token.
+typedef struct {
+    unsigned depth;
+    bool line_start;
+} DirectiveLines;
+
+// Called for every character of the token's body, before it is consumed. Consumes the leading
+// whitespace of a line and a directive's `#` and name; returns true once a line ends a branch.
+static bool directive_lines_step(TSLexer *lexer, DirectiveLines *lines, bool *consumed) {
+    *consumed = false;
+    int32_t c = lexer->lookahead;
+    if (is_line_break(c)) {
+        advance(lexer);
+        lines->line_start = true;
+        *consumed = true;
+        return false;
+    }
+    if (!lines->line_start) return false;
+    if (is_line_space(c)) {
+        advance(lexer);
+        *consumed = true;
+        return false;
+    }
+    lines->line_start = false;
+    if (c != '#') return false;
+    advance(lexer);
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') advance(lexer);
+    char buf[6];
+    size_t n = consume_identifier_into(lexer, buf, sizeof(buf));
+    *consumed = true;
+    if (buf_equals(buf, n, "if")) {
+        lines->depth++;
+    } else if (buf_equals(buf, n, "endif")) {
+        if (lines->depth == 0) return true;
+        lines->depth--;
+    } else if (buf_equals(buf, n, "else") || buf_equals(buf, n, "elif")) {
+        if (lines->depth == 0) return true;
+    }
+    return false;
+}
+
+// After `/*`. True if the comment holds a line that ends a branch; false at its `*/` or at EOF.
+static bool block_comment_hides_directive(TSLexer *lexer) {
+    DirectiveLines lines = {0, false};
+    while (!lexer->eof(lexer)) {
+        bool consumed;
+        if (directive_lines_step(lexer, &lines, &consumed)) return true;
+        if (consumed) continue;
+        if (lexer->lookahead == '*') {
+            advance(lexer);
+            if (lexer->lookahead == '/') return false;
+            continue;
+        }
+        advance(lexer);
+    }
+    return false;
+}
+
+// After a verbatim string's opening `"`. True if it holds a line that ends a branch.
+static bool verbatim_string_hides_directive(TSLexer *lexer) {
+    DirectiveLines lines = {0, false};
+    while (!lexer->eof(lexer)) {
+        bool consumed;
+        if (directive_lines_step(lexer, &lines, &consumed)) return true;
+        if (consumed) continue;
+        if (lexer->lookahead == '"') {
+            advance(lexer);
+            if (lexer->lookahead != '"') return false;
+        }
+        advance(lexer);
+    }
+    return false;
+}
+
+// After a raw string's opening run of `quotes` quotes. True if it holds a line that ends a branch.
+static bool raw_string_hides_directive(TSLexer *lexer, uint8_t quotes) {
+    DirectiveLines lines = {0, false};
+    while (!lexer->eof(lexer)) {
+        bool consumed;
+        if (directive_lines_step(lexer, &lines, &consumed)) return true;
+        if (consumed) continue;
+        if (lexer->lookahead == '"') {
+            unsigned run = 0;
+            while (lexer->lookahead == '"') {
+                advance(lexer);
+                run++;
+            }
+            if (run >= quotes) return false;
+            continue;
+        }
+        advance(lexer);
+    }
+    return false;
 }
 
 void *tree_sitter_c_sharp_external_scanner_create() {
@@ -365,6 +478,28 @@ bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, co
         }
     }
 
+    // A `/* */` comment that hides a branch-ending directive line: see `DirectiveLines`. Every
+    // other comment is left to the grammar's own `comment` token (this returns false). Not inside
+    // a string or a hole's braces, whose content is not a comment, and not where `;` is optional:
+    // that token comes first, zero-width, and the scan runs again in the next state.
+    if (!valid_symbols[OPT_SEMI] && !valid_symbols[INTERPOLATION_STRING_CONTENT] &&
+        !valid_symbols[INTERPOLATION_START_QUOTE] && !valid_symbols[INTERPOLATION_END_QUOTE] &&
+        !valid_symbols[INTERPOLATION_OPEN_BRACE] && !valid_symbols[INTERPOLATION_CLOSE_BRACE] &&
+        !valid_symbols[RAW_STRING_END] && !valid_symbols[RAW_STRING_CONTENT]) {
+        while (iswspace(lexer->lookahead)) {
+            skip(lexer);
+        }
+        if (lexer->lookahead == '/') {
+            advance(lexer);
+            if (lexer->lookahead != '*') return false;
+            advance(lexer);
+            if (!block_comment_hides_directive(lexer)) return false;
+            lexer->mark_end(lexer);
+            lexer->result_symbol = SKIPPED_TEXT_HAZARD;
+            return true;
+        }
+    }
+
     if (valid_symbols[PREPROC_ELSE_IF_START]) {
         if (scan_preproc_else_if_start(lexer)) return true;
         return false;
@@ -395,6 +530,13 @@ bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, co
             }
 
             if (quote_count >= 3) {
+                lexer->mark_end(lexer);
+                // Read ahead for a branch-ending line (see `DirectiveLines`); the token stays the
+                // opening quotes either way.
+                if (raw_string_hides_directive(lexer, quote_count)) {
+                    lexer->result_symbol = SKIPPED_TEXT_HAZARD;
+                    return true;
+                }
                 lexer->result_symbol = RAW_STRING_START;
                 scanner->quote_count = quote_count;
                 return true;
@@ -496,6 +638,16 @@ bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, co
                 array_push(&scanner->interpolation_stack, interpolation);
             }
 
+            return true;
+        }
+
+        // `@"`: a plain verbatim string, which the grammar lexes itself. Only a string that hides
+        // a branch-ending line (see `DirectiveLines`) is taken here; nothing else starts at `@"`.
+        if (is_verbatim && dollar_advanced == 0 && lexer->lookahead == '"') {
+            advance(lexer);
+            if (!verbatim_string_hides_directive(lexer)) return false;
+            lexer->mark_end(lexer);
+            lexer->result_symbol = SKIPPED_TEXT_HAZARD;
             return true;
         }
     }
