@@ -160,10 +160,15 @@ export default grammar({
     // goes on). External because an internal token starting with `/` there changes how the
     // lexer splits the next line: `#region` then `// c` lexed `\n// c` as one comment.
     $._preproc_trailing_text,
+    // Zero-width, after an `#if` line and before its `#endif`: they keep the scanner's count of
+    // the `#if` blocks it is inside, which `_skipped_text_hazard` needs. At depth 0 no branch
+    // can be skipped.
+    $._preproc_if_open,
+    $._preproc_if_close,
   ],
 
   extras: $ => [
-    /[\s\u00A0\uFEFF\u3000]+/,
+    /[\s\u00A0\uFEFF\u3000\u0085\u2028\u2029]+/,
     $.comment,
     $.preproc_region,
     $.preproc_endregion,
@@ -2293,13 +2298,14 @@ export default grammar({
     ...preprocIf('_in_enum_member_declaration', $ => $.enum_member_declaration, 0, false),
     ...preprocIf('_in_attribute_list', $ => $.attribute_list, -1, false),
 
-    // A directive's text runs to the end of the line. C# has no `/* */` comment on a directive
+    // A directive's text runs to the end of the line, any C# line break (C# has no `\`
+    // continuation, so `#region C:\x\` ends there). C# has no `/* */` comment on a directive
     // line, so `/*` there is text: as a comment it hid every line up to the next `*/` from the
     // tree while the compiler builds them. The scanner takes text that starts with `/*`
     // (`_preproc_trailing_text`); a `//` at the start is still a comment, as the first token ranks
     // below it.
     preproc_arg: $ => choice(
-      token(prec(-1, /\S([^\n]|\\\r?\n)*/)),
+      token(prec(-1, /\S[^\r\n\u0085\u2028\u2029]*/)),
       $._preproc_trailing_text,
     ),
     preproc_directive: _ => /#[ \t]*[a-zA-Z0-9]\w*/,
@@ -2397,13 +2403,13 @@ export default grammar({
 
     preproc_error: $ => seq(
       preprocessor('error'),
-      $.preproc_arg,
+      optional($.preproc_arg),
       /\n/,
     ),
 
     preproc_warning: $ => seq(
       preprocessor('warning'),
-      $.preproc_arg,
+      optional($.preproc_arg),
       /\n/,
     ),
 
@@ -2426,7 +2432,7 @@ export default grammar({
     shebang_directive: _ => token(seq('#!', /.*/)),
 
     comment: _ => token(choice(
-      seq('//', /[^\n\r]*/),
+      seq('//', /[^\n\r\u0085\u2028\u2029]*/),
       seq(
         '/*',
         /[^*]*\*+([^/*][^*]*\*+)*/,
@@ -2478,8 +2484,10 @@ function preprocIf(suffix, content, precedence = 0, rep = true, ifToken = null) 
       ifToken ? alias(ifToken($), '#if') : preprocessor('if'),
       field('condition', $._preproc_expression),
       /\n/,
+      $._preproc_if_open,
       rep ? repeat(content($)) : optional(content($)),
       field('alternative', optional(alternativeBlock($))),
+      $._preproc_if_close,
       preprocessor('endif'),
     )),
 
