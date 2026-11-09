@@ -23,6 +23,8 @@ enum TokenType {
     SKIPPED_TEXT_HAZARD,
     SKIPPED_TEXT_NEVER,
     PREPROC_TRAILING_TEXT,
+    PREPROC_IF_OPEN,
+    PREPROC_IF_CLOSE,
 };
 
 typedef enum {
@@ -46,6 +48,10 @@ static inline bool is_raw(Interpolation *interpolation) { return interpolation->
 
 typedef struct {
     uint8_t quote_count;
+    // How many `#if` blocks the scan position is inside, counted from the grammar's own `#if`
+    // and `#endif` (`PREPROC_IF_OPEN`/`PREPROC_IF_CLOSE`), saturating at 255. At 0 no text can
+    // be in a branch the compiler skips.
+    uint8_t if_depth;
     Array(Interpolation) interpolation_stack;
 } Scanner;
 
@@ -128,13 +134,16 @@ static inline bool is_line_space(int32_t c) {
            (c >= 0x2000 && c <= 0x200A) || c == 0x202F || c == 0x205F || c == 0x3000;
 }
 
-// The lines of a multi-line token (a `/* */` comment, a verbatim or a raw string), checked for a
-// conditional directive. In a branch the compiler skips, such a token is not a token at all: the
-// skipped text is only scanned for directives, so an `#else`, `#elif` or `#endif` line inside it
-// ends the branch and what follows is code. The grammar cannot tell a skipped branch from an
-// active one, so a token holding such a line that it did not open itself has no single right
-// tree. `#if`/`#endif` pairs inside the token are balanced, as the compiler balances them in
-// skipped text, so commented-out code holding a whole `#if` block is still one token.
+// The lines of a token that can span lines (a `/* */` comment, a verbatim or raw string, the
+// content of an interpolated verbatim or raw string), checked for a conditional directive. In a
+// branch the compiler skips, such a token is not a token at all: skipped text is only scanned for
+// directives, so an `#else`, `#elif` or `#endif` line inside it ends the branch and what follows
+// is code, and an `#if` it leaves open makes the branch run on past the `#endif` the tree pairs
+// with it. The grammar cannot tell a skipped branch from an active one, so such a token has no
+// single right tree when it starts inside an `#if` block (`if_depth` > 0). At depth 0 nothing is
+// skipped and the token is what it looks like. `#if`/`#endif` pairs inside the token are
+// balanced, as the compiler balances them in skipped text, so commented-out code holding a whole
+// `#if` block is still one token anywhere.
 typedef struct {
     unsigned depth;
     bool line_start;
@@ -175,7 +184,8 @@ static bool directive_lines_step(TSLexer *lexer, DirectiveLines *lines, bool *co
     return false;
 }
 
-// After `/*`. True if the comment holds a line that ends a branch; false at its `*/` or at EOF.
+// After `/*`. True if the comment holds a line that ends a branch, or leaves an `#if` open at its
+// `*/`. False at EOF: an unclosed comment is the grammar's error already.
 static bool block_comment_hides_directive(TSLexer *lexer) {
     DirectiveLines lines = {0, false};
     while (!lexer->eof(lexer)) {
@@ -184,7 +194,7 @@ static bool block_comment_hides_directive(TSLexer *lexer) {
         if (consumed) continue;
         if (lexer->lookahead == '*') {
             advance(lexer);
-            if (lexer->lookahead == '/') return false;
+            if (lexer->lookahead == '/') return lines.depth > 0;
             continue;
         }
         advance(lexer);
@@ -192,7 +202,7 @@ static bool block_comment_hides_directive(TSLexer *lexer) {
     return false;
 }
 
-// After a verbatim string's opening `"`. True if it holds a line that ends a branch.
+// After a verbatim string's opening `"`. True as for a comment.
 static bool verbatim_string_hides_directive(TSLexer *lexer) {
     DirectiveLines lines = {0, false};
     while (!lexer->eof(lexer)) {
@@ -201,14 +211,14 @@ static bool verbatim_string_hides_directive(TSLexer *lexer) {
         if (consumed) continue;
         if (lexer->lookahead == '"') {
             advance(lexer);
-            if (lexer->lookahead != '"') return false;
+            if (lexer->lookahead != '"') return lines.depth > 0;
         }
         advance(lexer);
     }
     return false;
 }
 
-// After a raw string's opening run of `quotes` quotes. True if it holds a line that ends a branch.
+// After a raw string's opening run of `quotes` quotes. True as for a comment.
 static bool raw_string_hides_directive(TSLexer *lexer, uint8_t quotes) {
     DirectiveLines lines = {0, false};
     while (!lexer->eof(lexer)) {
@@ -221,7 +231,7 @@ static bool raw_string_hides_directive(TSLexer *lexer, uint8_t quotes) {
                 advance(lexer);
                 run++;
             }
-            if (run >= quotes) return false;
+            if (run >= quotes) return lines.depth > 0;
             continue;
         }
         advance(lexer);
@@ -244,13 +254,14 @@ void tree_sitter_c_sharp_external_scanner_destroy(void *payload) {
 unsigned tree_sitter_c_sharp_external_scanner_serialize(void *payload, char *buffer) {
     Scanner *scanner = (Scanner *)payload;
 
-    if (scanner->interpolation_stack.size * 4 + 2 > TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
+    if (scanner->interpolation_stack.size * 4 + 3 > TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
         return 0;
     }
 
     unsigned size = 0;
 
     buffer[size++] = (char)scanner->quote_count;
+    buffer[size++] = (char)scanner->if_depth;
     buffer[size++] = (char)scanner->interpolation_stack.size;
 
     for (unsigned i = 0; i < scanner->interpolation_stack.size; i++) {
@@ -268,11 +279,13 @@ void tree_sitter_c_sharp_external_scanner_deserialize(void *payload, const char 
     Scanner *scanner = (Scanner *)payload;
 
     scanner->quote_count = 0;
+    scanner->if_depth = 0;
     array_clear(&scanner->interpolation_stack);
     unsigned size = 0;
 
     if (length > 0) {
         scanner->quote_count = (unsigned char)buffer[size++];
+        scanner->if_depth = (unsigned char)buffer[size++];
         scanner->interpolation_stack.size = (unsigned char)buffer[size++];
         array_reserve(&scanner->interpolation_stack, scanner->interpolation_stack.size);
 
@@ -426,18 +439,8 @@ static LambdaScanResult scan_lambda_paren_open(TSLexer *lexer) {
 // lines or comments, is the keyword `else`. Only `#if` is consumed (mark_end);
 // the rest is read ahead and handed back so the normal tokens lex it. Lets an
 // `else` branch live inside a directive without a parser conflict on `#if`.
-static bool scan_preproc_else_if_start(TSLexer *lexer) {
-    while (iswspace(lexer->lookahead)) {
-        skip(lexer);
-    }
-    if (lexer->lookahead != '#') return false;
-    advance(lexer);
-    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') advance(lexer);
-    if (lexer->lookahead != 'i') return false;
-    advance(lexer);
-    if (lexer->lookahead != 'f') return false;
-    advance(lexer);
-    if (is_id_continue(lexer->lookahead)) return false;
+// The rest of `scan_preproc_else_if_start`, with `#if` consumed.
+static bool finish_preproc_else_if_start(TSLexer *lexer) {
     lexer->mark_end(lexer);
     // rest of the condition line
     while (lexer->lookahead != 0 && lexer->lookahead != '\n') advance(lexer);
@@ -452,12 +455,59 @@ static bool scan_preproc_else_if_start(TSLexer *lexer) {
     return true;
 }
 
+static bool scan_preproc_else_if_start(TSLexer *lexer) {
+    while (iswspace(lexer->lookahead)) {
+        skip(lexer);
+    }
+    if (lexer->lookahead != '#') return false;
+    advance(lexer);
+    while (lexer->lookahead == ' ' || lexer->lookahead == '\t') advance(lexer);
+    if (lexer->lookahead != 'i') return false;
+    advance(lexer);
+    if (lexer->lookahead != 'f') return false;
+    advance(lexer);
+    if (is_id_continue(lexer->lookahead)) return false;
+    return finish_preproc_else_if_start(lexer);
+}
+
 bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, const bool *valid_symbols) {
     Scanner *scanner = (Scanner *)payload;
 
     uint8_t brace_advanced = 0;
     uint8_t quote_count = 0;
     bool did_advance = false;
+    // Every symbol is valid during error recovery; the zero-width depth tokens must not fire then.
+    bool recovering = valid_symbols[OPT_SEMI] && valid_symbols[INTERPOLATION_REGULAR_START];
+
+    // Right after an `#if` line: one level deeper.
+    if (valid_symbols[PREPROC_IF_OPEN] && !recovering) {
+        if (scanner->if_depth < 255) scanner->if_depth++;
+        lexer->result_symbol = PREPROC_IF_OPEN;
+        return true;
+    }
+
+    // Right before `#endif`: one level out. Where `;` is optional too, that token comes first.
+    if (valid_symbols[PREPROC_IF_CLOSE] && !valid_symbols[OPT_SEMI] && !recovering) {
+        while (iswspace(lexer->lookahead)) {
+            skip(lexer);
+        }
+        if (lexer->lookahead == '#') {
+            lexer->mark_end(lexer);
+            advance(lexer);
+            while (lexer->lookahead == ' ' || lexer->lookahead == '\t') advance(lexer);
+            char buf[6];
+            size_t n = consume_identifier_into(lexer, buf, sizeof(buf));
+            if (buf_equals(buf, n, "endif")) {
+                if (scanner->if_depth > 0 && scanner->if_depth < 255) scanner->if_depth--;
+                lexer->result_symbol = PREPROC_IF_CLOSE;
+                return true;
+            }
+            if (buf_equals(buf, n, "if") && valid_symbols[PREPROC_ELSE_IF_START]) {
+                return finish_preproc_else_if_start(lexer);
+            }
+            return false;
+        }
+    }
 
     // Lambda-paren scanning advances forward speculatively past the
     // opening `(`. If it consumes input and then bails, the lexer
@@ -486,10 +536,20 @@ bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, co
                lexer->lookahead == '\f') {
             skip(lexer);
         }
-        if (lexer->lookahead == '/') {
+        int32_t c = lexer->lookahead;
+        // Text the directive's own tokens do not take: `/*`, or anything that is not a name, a
+        // number, a `,` or a `//` comment (`#pragma warning restore X */` warns, CS1696).
+        bool text = false;
+        if (c == '/') {
             advance(lexer);
-            if (lexer->lookahead != '*') return false;
-            while (!lexer->eof(lexer) && lexer->lookahead != '\n') advance(lexer);
+            if (lexer->lookahead == '/') return false;
+            text = true;
+        } else if (c != 0 && c != ',' && c != '"' && !is_id_continue(c) && !is_line_break(c) &&
+                   !iswspace(c)) {
+            text = true;
+        }
+        if (text) {
+            while (!lexer->eof(lexer) && !is_line_break(lexer->lookahead)) advance(lexer);
             lexer->mark_end(lexer);
             lexer->result_symbol = PREPROC_TRAILING_TEXT;
             return true;
@@ -500,7 +560,7 @@ bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, co
     // other comment is left to the grammar's own `comment` token (this returns false). Not inside
     // a string or a hole's braces, whose content is not a comment, and not where `;` is optional:
     // that token comes first, zero-width, and the scan runs again in the next state.
-    if (!valid_symbols[OPT_SEMI] && !valid_symbols[INTERPOLATION_STRING_CONTENT] &&
+    if (scanner->if_depth > 0 && !valid_symbols[OPT_SEMI] && !valid_symbols[INTERPOLATION_STRING_CONTENT] &&
         !valid_symbols[INTERPOLATION_START_QUOTE] && !valid_symbols[INTERPOLATION_END_QUOTE] &&
         !valid_symbols[INTERPOLATION_OPEN_BRACE] && !valid_symbols[INTERPOLATION_CLOSE_BRACE] &&
         !valid_symbols[RAW_STRING_END] && !valid_symbols[RAW_STRING_CONTENT]) {
@@ -551,7 +611,7 @@ bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, co
                 lexer->mark_end(lexer);
                 // Read ahead for a branch-ending line (see `DirectiveLines`); the token stays the
                 // opening quotes either way.
-                if (raw_string_hides_directive(lexer, quote_count)) {
+                if (scanner->if_depth > 0 && raw_string_hides_directive(lexer, quote_count)) {
                     lexer->result_symbol = SKIPPED_TEXT_HAZARD;
                     return true;
                 }
@@ -663,7 +723,7 @@ bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, co
         // a branch-ending line (see `DirectiveLines`) is taken here; nothing else starts at `@"`.
         if (is_verbatim && dollar_advanced == 0 && lexer->lookahead == '"') {
             advance(lexer);
-            if (!verbatim_string_hides_directive(lexer)) return false;
+            if (scanner->if_depth == 0 || !verbatim_string_hides_directive(lexer)) return false;
             lexer->mark_end(lexer);
             lexer->result_symbol = SKIPPED_TEXT_HAZARD;
             return true;
@@ -727,9 +787,35 @@ bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, co
     if (valid_symbols[INTERPOLATION_OPEN_BRACE] && scanner->interpolation_stack.size > 0 && !did_advance) {
         Interpolation *current_interpolation = array_back(&scanner->interpolation_stack);
 
-        while (lexer->lookahead == '{' && brace_advanced < current_interpolation->dollar_count) {
+        // In a raw string, a run of more braces than `$` signs opens a hole with the LAST ones and
+        // the first are content: in `$$"""{{{x}}}"""` the first `{` is text and `{{` opens the
+        // hole. Each extra brace goes out as one content token, so the run shrinks until it matches.
+        if (is_raw(current_interpolation) && lexer->lookahead == '{' &&
+            valid_symbols[INTERPOLATION_STRING_CONTENT]) {
             advance(lexer);
-            brace_advanced++;
+            lexer->mark_end(lexer);
+            unsigned run = 1;
+            while (lexer->lookahead == '{') {
+                advance(lexer);
+                run++;
+            }
+            if (run > current_interpolation->dollar_count) {
+                lexer->result_symbol = INTERPOLATION_STRING_CONTENT;
+                return true;
+            }
+            if (run == current_interpolation->dollar_count) {
+                lexer->mark_end(lexer);
+                current_interpolation->open_brace_count = (uint8_t)run;
+                lexer->result_symbol = INTERPOLATION_OPEN_BRACE;
+                return true;
+            }
+            // Fewer braces than `$` signs: content, as before this check.
+            brace_advanced = (uint8_t)run;
+        } else {
+            while (lexer->lookahead == '{' && brace_advanced < current_interpolation->dollar_count) {
+                advance(lexer);
+                brace_advanced++;
+            }
         }
 
         if (brace_advanced > 0 && brace_advanced == current_interpolation->dollar_count &&
@@ -746,6 +832,20 @@ bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, co
 
         while (iswspace(lexer->lookahead)) {
             advance(lexer);
+        }
+
+        // A `/* */` comment in the hole, checked as anywhere else (see `DirectiveLines`); only here
+        // because whitespace before `}` belongs to the brace token, so the general check above
+        // cannot skip it.
+        if (lexer->lookahead == '/') {
+            if (scanner->if_depth == 0) return false;
+            advance(lexer);
+            if (lexer->lookahead != '*') return false;
+            advance(lexer);
+            if (!block_comment_hides_directive(lexer)) return false;
+            lexer->mark_end(lexer);
+            lexer->result_symbol = SKIPPED_TEXT_HAZARD;
+            return true;
         }
 
         while (lexer->lookahead == '}') {
@@ -765,8 +865,24 @@ bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, co
     if (valid_symbols[INTERPOLATION_STRING_CONTENT] && scanner->interpolation_stack.size > 0) {
         lexer->result_symbol = INTERPOLATION_STRING_CONTENT;
         Interpolation *current_interpolation = array_back(&scanner->interpolation_stack);
+        // Verbatim and raw content can span lines: checked as a comment is (see `DirectiveLines`).
+        bool multiline = is_raw(current_interpolation) || is_verbatim(current_interpolation);
+        DirectiveLines lines = {0, false};
 
         while (lexer->lookahead) {
+            if (multiline && scanner->if_depth > 0) {
+                bool consumed;
+                if (directive_lines_step(lexer, &lines, &consumed)) {
+                    lexer->mark_end(lexer);
+                    lexer->result_symbol = SKIPPED_TEXT_HAZARD;
+                    return true;
+                }
+                if (consumed) {
+                    brace_advanced = 0;
+                    did_advance = true;
+                    continue;
+                }
+            }
             // top-down approach, first see if it's raw
             if (is_raw(current_interpolation)) {
                 if (lexer->lookahead == '"') {
