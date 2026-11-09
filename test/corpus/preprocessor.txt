@@ -391,3 +391,34 @@ class C {
 --------------------------------------------------------------------------------
 
 
+
+================================================================================
+A comment on the line after a directive is its own node
+================================================================================
+
+#pragma warning disable A
+// a
+#region
+// b
+class C {
+#endregion
+// c
+#error x
+// d
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (preproc_pragma
+    (identifier))
+  (comment)
+  (preproc_region)
+  (comment)
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (preproc_endregion)
+      (comment)
+      (preproc_error
+        (preproc_arg))
+      (comment))))

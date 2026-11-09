@@ -156,6 +156,10 @@ export default grammar({
     $._skipped_text_hazard,
     // Never returned: what makes `_skipped_text` an error wherever it starts.
     $._skipped_text_never,
+    // `/*` to the end of a directive line: text, not a comment (`#pragma` warns, CS1696, and
+    // goes on). External because an internal token starting with `/` there changes how the
+    // lexer splits the next line: `#region` then `// c` lexed `\n// c` as one comment.
+    $._preproc_trailing_text,
   ],
 
   extras: $ => [
@@ -2291,11 +2295,12 @@ export default grammar({
 
     // A directive's text runs to the end of the line. C# has no `/* */` comment on a directive
     // line, so `/*` there is text: as a comment it hid every line up to the next `*/` from the
-    // tree while the compiler builds them. The second token outranks `comment` for that; a `//`
-    // at the start is still a comment, as the first token ranks below it.
-    preproc_arg: _ => choice(
+    // tree while the compiler builds them. The scanner takes text that starts with `/*`
+    // (`_preproc_trailing_text`); a `//` at the start is still a comment, as the first token ranks
+    // below it.
+    preproc_arg: $ => choice(
       token(prec(-1, /\S([^\n]|\\\r?\n)*/)),
-      token(prec(1, /\/\*([^\n]|\\\r?\n)*/)),
+      $._preproc_trailing_text,
     ),
     preproc_directive: _ => /#[ \t]*[a-zA-Z0-9]\w*/,
 
@@ -2379,8 +2384,7 @@ export default grammar({
             ))),
         seq('checksum', $.string_literal, $.string_literal, $.string_literal),
       ),
-      // `/*` after the pragma is text the compiler warns about (CS1696), not a comment.
-      optional(alias(token(prec(1, /\/\*[^\n]*/)), $.preproc_arg)),
+      optional(alias($._preproc_trailing_text, $.preproc_arg)),
       /\n/,
     ),
 

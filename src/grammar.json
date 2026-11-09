@@ -13057,15 +13057,8 @@
           }
         },
         {
-          "type": "TOKEN",
-          "content": {
-            "type": "PREC",
-            "value": 1,
-            "content": {
-              "type": "PATTERN",
-              "value": "\\/\\*([^\\n]|\\\\\\r?\\n)*"
-            }
-          }
+          "type": "SYMBOL",
+          "name": "_preproc_trailing_text"
         }
       ]
     },
@@ -13602,15 +13595,8 @@
             {
               "type": "ALIAS",
               "content": {
-                "type": "TOKEN",
-                "content": {
-                  "type": "PREC",
-                  "value": 1,
-                  "content": {
-                    "type": "PATTERN",
-                    "value": "\\/\\*[^\\n]*"
-                  }
-                }
+                "type": "SYMBOL",
+                "name": "_preproc_trailing_text"
               },
               "named": true,
               "value": "preproc_arg"
@@ -14216,6 +14202,10 @@
     {
       "type": "SYMBOL",
       "name": "_skipped_text_never"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "_preproc_trailing_text"
     }
   ],
   "inline": [
