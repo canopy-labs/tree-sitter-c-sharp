@@ -38,6 +38,10 @@ typedef struct {
     uint8_t open_brace_count;
     uint8_t quote_count;
     StringType string_type;
+    // The `DirectiveLines` state of the string's verbatim or raw content, carried across its
+    // content tokens: a hole splits the content, not the lines the compiler would scan.
+    uint8_t directive_depth;
+    bool directive_line_start;
 } Interpolation;
 
 static inline bool is_regular(Interpolation *interpolation) { return interpolation->string_type & REGULAR; }
@@ -254,7 +258,7 @@ void tree_sitter_c_sharp_external_scanner_destroy(void *payload) {
 unsigned tree_sitter_c_sharp_external_scanner_serialize(void *payload, char *buffer) {
     Scanner *scanner = (Scanner *)payload;
 
-    if (scanner->interpolation_stack.size * 4 + 3 > TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
+    if (scanner->interpolation_stack.size * 6 + 3 > TREE_SITTER_SERIALIZATION_BUFFER_SIZE) {
         return 0;
     }
 
@@ -270,6 +274,8 @@ unsigned tree_sitter_c_sharp_external_scanner_serialize(void *payload, char *buf
         buffer[size++] = (char)interpolation.open_brace_count;
         buffer[size++] = (char)interpolation.quote_count;
         buffer[size++] = (char)interpolation.string_type;
+        buffer[size++] = (char)interpolation.directive_depth;
+        buffer[size++] = (char)interpolation.directive_line_start;
     }
 
     return size;
@@ -295,6 +301,8 @@ void tree_sitter_c_sharp_external_scanner_deserialize(void *payload, const char 
             interpolation.open_brace_count = buffer[size++];
             interpolation.quote_count = buffer[size++];
             interpolation.string_type = (unsigned char)buffer[size++];
+            interpolation.directive_depth = (unsigned char)buffer[size++];
+            interpolation.directive_line_start = buffer[size++] != 0;
             scanner->interpolation_stack.contents[i] = interpolation;
         }
     }
@@ -752,6 +760,16 @@ bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, co
     if (valid_symbols[INTERPOLATION_END_QUOTE] && scanner->interpolation_stack.size > 0) {
         Interpolation *current_interpolation = array_back(&scanner->interpolation_stack);
 
+        // Verbatim or raw content that leaves an `#if` open (see `DirectiveLines`): the string
+        // ends here, so it is a hazard as a plain string would be.
+        if (lexer->lookahead == '"' && current_interpolation->directive_depth > 0 &&
+            scanner->if_depth > 0 && (is_raw(current_interpolation) || is_verbatim(current_interpolation))) {
+            advance(lexer);
+            lexer->mark_end(lexer);
+            lexer->result_symbol = SKIPPED_TEXT_HAZARD;
+            return true;
+        }
+
         if (is_raw(current_interpolation)) {
             while (lexer->lookahead == '"') {
                 advance(lexer);
@@ -806,6 +824,7 @@ bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, co
             if (run == current_interpolation->dollar_count) {
                 lexer->mark_end(lexer);
                 current_interpolation->open_brace_count = (uint8_t)run;
+                current_interpolation->directive_line_start = false;
                 lexer->result_symbol = INTERPOLATION_OPEN_BRACE;
                 return true;
             }
@@ -821,6 +840,7 @@ bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, co
         if (brace_advanced > 0 && brace_advanced == current_interpolation->dollar_count &&
             (brace_advanced == 0 || lexer->lookahead != '{')) {
             current_interpolation->open_brace_count = brace_advanced;
+            current_interpolation->directive_line_start = false;
             lexer->result_symbol = INTERPOLATION_OPEN_BRACE;
             return true;
         }
@@ -867,12 +887,16 @@ bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, co
         Interpolation *current_interpolation = array_back(&scanner->interpolation_stack);
         // Verbatim and raw content can span lines: checked as a comment is (see `DirectiveLines`).
         bool multiline = is_raw(current_interpolation) || is_verbatim(current_interpolation);
-        DirectiveLines lines = {0, false};
+        DirectiveLines lines = {current_interpolation->directive_depth,
+                                current_interpolation->directive_line_start};
 
         while (lexer->lookahead) {
             if (multiline && scanner->if_depth > 0) {
                 bool consumed;
-                if (directive_lines_step(lexer, &lines, &consumed)) {
+                bool ends_branch = directive_lines_step(lexer, &lines, &consumed);
+                current_interpolation->directive_depth = lines.depth > 255 ? 255 : (uint8_t)lines.depth;
+                current_interpolation->directive_line_start = lines.line_start;
+                if (ends_branch) {
                     lexer->mark_end(lexer);
                     lexer->result_symbol = SKIPPED_TEXT_HAZARD;
                     return true;

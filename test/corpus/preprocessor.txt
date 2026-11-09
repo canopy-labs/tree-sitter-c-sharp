@@ -634,3 +634,118 @@ class C {
           (variable_declarator
             (identifier))))
       (preproc_endregion))))
+
+================================================================================
+An interpolated verbatim string leaving an #if open in a skipped branch is an error
+:error
+================================================================================
+
+class C {
+  void M(int t) {
+#if false
+    var s = $@"
+#if X
+";
+#endif
+    /*
+#endif
+    int SENT1 = 0; // */
+  }
+}
+--------------------------------------------------------------------------------
+
+
+
+================================================================================
+An interpolated raw string leaving an #if open in a skipped branch is an error
+:error
+================================================================================
+
+class C {
+  void M(int t) {
+#if false
+    var s = $"""
+#if X
+""";
+#endif
+    /*
+#endif
+    int SENT1 = 0; // */
+  }
+}
+--------------------------------------------------------------------------------
+
+
+
+================================================================================
+Interpolated content split by holes leaving an #if open in a skipped branch is an error
+:error
+================================================================================
+
+class C {
+  void M(int t) {
+#if false
+    var s = $@"{t}
+#if X
+{t}";
+#endif
+    /*
+#endif
+    int SENT1 = 0; // */
+  }
+}
+--------------------------------------------------------------------------------
+
+
+
+================================================================================
+An #if block split by a hole in interpolated content is balanced
+================================================================================
+
+class C {
+  void M(int t) {
+#if DEBUG
+    var s = $@"
+#if A
+{t}
+#endif
+";
+#endif
+    int SENT1 = 0;
+  }
+}
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (class_declaration
+    (identifier)
+    (declaration_list
+      (method_declaration
+        (predefined_type)
+        (identifier)
+        (parameter_list
+          (parameter
+            (predefined_type)
+            (identifier)))
+        (block
+          (preproc_if
+            (identifier)
+            (local_declaration_statement
+              (variable_declaration
+                (implicit_type)
+                (variable_declarator
+                  (identifier)
+                  (interpolated_string_expression
+                    (interpolation_start)
+                    (string_content)
+                    (interpolation
+                      (interpolation_brace)
+                      (identifier)
+                      (interpolation_brace))
+                    (string_content))))))
+          (local_declaration_statement
+            (variable_declaration
+              (predefined_type)
+              (variable_declarator
+                (identifier)
+                (integer_literal)))))))))
