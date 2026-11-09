@@ -2352,13 +2352,13 @@ export default grammar({
     preproc_region: $ => seq(
       preprocessor('region'),
       optional(field('content', $.preproc_arg)),
-      /\n/,
+      /[\n\u0085\u2028\u2029]/,
     ),
 
     preproc_endregion: $ => seq(
       preprocessor('endregion'),
       optional(field('content', $.preproc_arg)),
-      /\n/,
+      /[\n\u0085\u2028\u2029]/,
     ),
 
     preproc_line: $ => seq(
@@ -2375,7 +2375,7 @@ export default grammar({
           $.string_literal,
         ),
       ),
-      /\n/,
+      /[\n\u0085\u2028\u2029]/,
     ),
 
     preproc_pragma: $ => seq(
@@ -2391,38 +2391,38 @@ export default grammar({
         seq('checksum', $.string_literal, $.string_literal, $.string_literal),
       ),
       optional(alias($._preproc_trailing_text, $.preproc_arg)),
-      /\n/,
+      /[\n\u0085\u2028\u2029]/,
     ),
 
     preproc_nullable: _ => seq(
       preprocessor('nullable'),
       choice('enable', 'disable', 'restore'),
       optional(choice('annotations', 'warnings')),
-      /\n/,
+      /[\n\u0085\u2028\u2029]/,
     ),
 
     preproc_error: $ => seq(
       preprocessor('error'),
       optional($.preproc_arg),
-      /\n/,
+      /[\n\u0085\u2028\u2029]/,
     ),
 
     preproc_warning: $ => seq(
       preprocessor('warning'),
       optional($.preproc_arg),
-      /\n/,
+      /[\n\u0085\u2028\u2029]/,
     ),
 
     preproc_define: $ => seq(
       preprocessor('define'),
       $.preproc_arg,
-      /\n/,
+      /[\n\u0085\u2028\u2029]/,
     ),
 
     preproc_undef: $ => seq(
       preprocessor('undef'),
       $.preproc_arg,
-      /\n/,
+      /[\n\u0085\u2028\u2029]/,
     ),
 
     // An extra so the scanner is asked about it in every state, and one that cannot complete,
@@ -2483,7 +2483,7 @@ function preprocIf(suffix, content, precedence = 0, rep = true, ifToken = null) 
     ['preproc_if' + suffix]: $ => prec(precedence, seq(
       ifToken ? alias(ifToken($), '#if') : preprocessor('if'),
       field('condition', $._preproc_expression),
-      /\n/,
+      /[\n\u0085\u2028\u2029]/,
       $._preproc_if_open,
       rep ? repeat(content($)) : optional(content($)),
       field('alternative', optional(alternativeBlock($))),
@@ -2499,7 +2499,7 @@ function preprocIf(suffix, content, precedence = 0, rep = true, ifToken = null) 
     ['preproc_elif' + suffix]: $ => prec(precedence, seq(
       preprocessor('elif'),
       field('condition', $._preproc_expression),
-      /\n/,
+      /[\n\u0085\u2028\u2029]/,
       rep ? repeat(content($)) : optional(content($)),
       field('alternative', optional(alternativeBlock($))),
     )),

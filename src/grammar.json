@@ -11070,7 +11070,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "SYMBOL",
@@ -11174,7 +11174,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "REPEAT",
@@ -11236,7 +11236,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "SYMBOL",
@@ -11368,7 +11368,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "REPEAT",
@@ -11449,7 +11449,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "SYMBOL",
@@ -11573,7 +11573,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "CHOICE",
@@ -11650,7 +11650,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "SYMBOL",
@@ -11792,7 +11792,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "CHOICE",
@@ -11878,7 +11878,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "SYMBOL",
@@ -12026,7 +12026,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "CHOICE",
@@ -12115,7 +12115,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "SYMBOL",
@@ -12257,7 +12257,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "CHOICE",
@@ -12343,7 +12343,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "SYMBOL",
@@ -12467,7 +12467,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "CHOICE",
@@ -12544,7 +12544,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "SYMBOL",
@@ -12668,7 +12668,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "CHOICE",
@@ -12745,7 +12745,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "SYMBOL",
@@ -12869,7 +12869,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "CHOICE",
@@ -12946,7 +12946,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "SYMBOL",
@@ -13070,7 +13070,7 @@
           },
           {
             "type": "PATTERN",
-            "value": "\\n"
+            "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
             "type": "CHOICE",
@@ -13403,7 +13403,7 @@
         },
         {
           "type": "PATTERN",
-          "value": "\\n"
+          "value": "[\\n\\u0085\\u2028\\u2029]"
         }
       ]
     },
@@ -13437,7 +13437,7 @@
         },
         {
           "type": "PATTERN",
-          "value": "\\n"
+          "value": "[\\n\\u0085\\u2028\\u2029]"
         }
       ]
     },
@@ -13554,7 +13554,7 @@
         },
         {
           "type": "PATTERN",
-          "value": "\\n"
+          "value": "[\\n\\u0085\\u2028\\u2029]"
         }
       ]
     },
@@ -13688,7 +13688,7 @@
         },
         {
           "type": "PATTERN",
-          "value": "\\n"
+          "value": "[\\n\\u0085\\u2028\\u2029]"
         }
       ]
     },
@@ -13744,7 +13744,7 @@
         },
         {
           "type": "PATTERN",
-          "value": "\\n"
+          "value": "[\\n\\u0085\\u2028\\u2029]"
         }
       ]
     },
@@ -13774,7 +13774,7 @@
         },
         {
           "type": "PATTERN",
-          "value": "\\n"
+          "value": "[\\n\\u0085\\u2028\\u2029]"
         }
       ]
     },
@@ -13804,7 +13804,7 @@
         },
         {
           "type": "PATTERN",
-          "value": "\\n"
+          "value": "[\\n\\u0085\\u2028\\u2029]"
         }
       ]
     },
@@ -13826,7 +13826,7 @@
         },
         {
           "type": "PATTERN",
-          "value": "\\n"
+          "value": "[\\n\\u0085\\u2028\\u2029]"
         }
       ]
     },
@@ -13848,7 +13848,7 @@
         },
         {
           "type": "PATTERN",
-          "value": "\\n"
+          "value": "[\\n\\u0085\\u2028\\u2029]"
         }
       ]
     },

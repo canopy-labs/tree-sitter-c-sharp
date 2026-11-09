@@ -611,6 +611,8 @@ A line comment and directive text end at U+2028
 
 class C {
   // c   int SENT1;
+#region a   int SENT2;
+#endregion
 }
 --------------------------------------------------------------------------------
 
@@ -623,4 +625,12 @@ class C {
         (variable_declaration
           (predefined_type)
           (variable_declarator
-            (identifier)))))))
+            (identifier))))
+      (preproc_region
+        (preproc_arg))
+      (field_declaration
+        (variable_declaration
+          (predefined_type)
+          (variable_declarator
+            (identifier))))
+      (preproc_endregion))))
