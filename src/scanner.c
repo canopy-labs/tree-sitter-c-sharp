@@ -22,6 +22,7 @@ enum TokenType {
     PREPROC_ELSE_IF_START,
     SKIPPED_TEXT_HAZARD,
     SKIPPED_TEXT_NEVER,
+    PREPROC_TRAILING_TEXT,
 };
 
 typedef enum {
@@ -475,6 +476,23 @@ bool tree_sitter_c_sharp_external_scanner_scan(void *payload, TSLexer *lexer, co
                 return false;
             case LAMBDA_SCAN_NO_PAREN:
                 break;  // lexer untouched; fall through
+        }
+    }
+
+    // `/*` at the end of a `#pragma` line runs to the end of the line: C# has no delimited comment
+    // on a directive line. A `//` is left to the grammar's `comment`.
+    if (valid_symbols[PREPROC_TRAILING_TEXT] && !valid_symbols[OPT_SEMI]) {
+        while (lexer->lookahead == ' ' || lexer->lookahead == '\t' || lexer->lookahead == '\v' ||
+               lexer->lookahead == '\f') {
+            skip(lexer);
+        }
+        if (lexer->lookahead == '/') {
+            advance(lexer);
+            if (lexer->lookahead != '*') return false;
+            while (!lexer->eof(lexer) && lexer->lookahead != '\n') advance(lexer);
+            lexer->mark_end(lexer);
+            lexer->result_symbol = PREPROC_TRAILING_TEXT;
+            return true;
         }
     }
 
