@@ -12958,16 +12958,11 @@
             "name": "_preproc_if_open"
           },
           {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "attribute_list"
-              },
-              {
-                "type": "BLANK"
-              }
-            ]
+            "type": "REPEAT",
+            "content": {
+              "type": "SYMBOL",
+              "name": "attribute_list"
+            }
           },
           {
             "type": "FIELD",
@@ -13036,16 +13031,11 @@
             "value": "#else"
           },
           {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "attribute_list"
-              },
-              {
-                "type": "BLANK"
-              }
-            ]
+            "type": "REPEAT",
+            "content": {
+              "type": "SYMBOL",
+              "name": "attribute_list"
+            }
           }
         ]
       }
@@ -13078,16 +13068,11 @@
             "value": "[\\n\\u0085\\u2028\\u2029]"
           },
           {
-            "type": "CHOICE",
-            "members": [
-              {
-                "type": "SYMBOL",
-                "name": "attribute_list"
-              },
-              {
-                "type": "BLANK"
-              }
-            ]
+            "type": "REPEAT",
+            "content": {
+              "type": "SYMBOL",
+              "name": "attribute_list"
+            }
           },
           {
             "type": "FIELD",
@@ -14333,6 +14318,14 @@
     [
       "preproc_if_in_expression",
       "preproc_if_in_collection"
+    ],
+    [
+      "_attribute_list",
+      "preproc_if_in_attribute_list"
+    ],
+    [
+      "_attribute_list",
+      "preproc_else_in_attribute_list"
     ],
     [
       "_lambda_expression_init",
