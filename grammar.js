@@ -92,6 +92,10 @@ export default grammar({
     [$._reserved_identifier, $.modifier],
     [$.preproc_if_in_expression, $.preproc_if_in_initializer],
     [$.preproc_if_in_expression, $.preproc_if_in_collection],
+    // An `#if` block can hold several attribute lists, or a declaration whose
+    // own attribute lists start the same way; the `#endif` decides.
+    [$._attribute_list, $.preproc_if_in_attribute_list],
+    [$._attribute_list, $.preproc_else_in_attribute_list],
     // canopy.2: `partial`, `async` and `required` are also plain identifiers
     // (a local named `partial` starts a statement). `async` is the hard one: it
     // is a lambda / anonymous-method modifier too, so the lambda rules below
@@ -2296,7 +2300,7 @@ export default grammar({
     ...preprocIf('_in_collection', $ => $._collection_items, -2, false),
     ...preprocIf('_in_initializer', $ => $._initializer_items, -2, false),
     ...preprocIf('_in_enum_member_declaration', $ => $.enum_member_declaration, 0, false),
-    ...preprocIf('_in_attribute_list', $ => $.attribute_list, -1, false),
+    ...preprocIf('_in_attribute_list', $ => $.attribute_list, -1),
 
     // A directive's text runs to the end of the line, any C# line break (C# has no `\`
     // continuation, so `#region C:\x\` ends there). C# has no `/* */` comment on a directive
