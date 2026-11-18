@@ -183,6 +183,7 @@ export default grammar({
     $.preproc_warning,
     $.preproc_define,
     $.preproc_undef,
+    $.ignored_directive,
     $._skipped_text,
   ],
 
@@ -349,7 +350,10 @@ export default grammar({
     _struct_declaration_initializer: $ => seq(
       repeat($._attribute_list),
       repeat($.modifier),
-      optional(seq('ref', repeat($.modifier))), // `ref partial struct`: `partial` must follow `ref`
+      // C# requires `partial` to be the LAST modifier before the type keyword,
+      // so the legal order is `ref partial struct`. canopy: `partial` (or any
+      // modifier) after `ref` stays a `modifier` node, like the ones before it.
+      optional(seq('ref', repeat($.modifier))),
       'struct',
       field('name', $.identifier),
       repeat(choice($.type_parameter_list, $.parameter_list, $.base_list)),
@@ -1355,9 +1359,9 @@ export default grammar({
 
     var_pattern: $ => seq('var', $._variable_designation),
 
-    // canopy.2: precedence 1 keeps `case int when x:` reading `when` as the
-    // clause keyword now that `async` joined `_reserved_identifier`.
-    type_pattern: $ => prec.right(1, field('type', $.type)),
+    // Precedence above _variable_designation so `case int when x:` reduces
+    // to a type pattern before `when` instead of using `when` as a name.
+    type_pattern: $ => prec.right(2, field('type', $.type)),
 
     // The designation-less form outranks the one with a designation so that, on
     // `when`, the parser reduces here and lets `when_clause` take it instead of
@@ -1379,10 +1383,10 @@ export default grammar({
     // C# 11 slice pattern: `..` optionally followed by a subpattern that
     // binds the captured slice. `[a, .. var rest, z]`, `[..]` (bare),
     // `[.. List<int> rest]` (declaration_pattern), etc.
-    slice_pattern: $ => prec.right(seq(
-      '..',
-      optional($.pattern),
-    )),
+    slice_pattern: $ => choice(
+      prec(PREC.RANGE + 1, '..'),
+      prec.right(seq('..', $.pattern)),
+    ),
 
     recursive_pattern: $ => prec.left(choice(
       // name followed by positional pattern WITH variable designation
@@ -2434,6 +2438,56 @@ export default grammar({
     _skipped_text: $ => seq($._skipped_text_hazard, $._skipped_text_never),
 
     shebang_directive: _ => token(seq('#!', /.*/)),
+
+    // C# 14 / .NET 10 file-based apps directives. The compiler ignores them;
+    // the .NET SDK reads them. Structure follows the SDK spec:
+    // https://github.com/dotnet/sdk/blob/main/documentation/general/dotnet-run-file.md
+    //
+    //   #:package Name@Version     #:sdk Name@Version     #:property Name=Value
+    //   #:project path             #:ref path             #:include glob    ...
+    //
+    // `package`, `sdk` and `property` split into name, separator and value.
+    // Any other kind (including unknown ones) takes the rest of the line as
+    // its value. Kinds are immediate tokens only valid right after `#:`, so
+    // they never reserve these words elsewhere.
+    ignored_directive: $ => seq(
+      '#:',
+      optional(choice(
+        seq(
+          field('kind', choice(
+            alias(token.immediate('package'), $.directive_kind),
+            alias(token.immediate('sdk'), $.directive_kind),
+            alias(token.immediate('property'), $.directive_kind),
+          )),
+          optional(seq(
+            field('name', $.directive_name),
+            optional(field('separator', $.directive_separator)),
+            optional(field('value', $.directive_value)),
+          )),
+        ),
+        seq(
+          field('kind', alias(token.immediate(/[A-Za-z_][A-Za-z0-9_-]*/), $.directive_kind)),
+          optional(field('value', $.directive_value)),
+        ),
+        // Not a well-formed directive (e.g. `#: package X`): still ignored by
+        // the compiler, so keep the rest of the line as an unstructured value.
+        field('value', alias(token.immediate(/[ \t]+[^\s\u0085\u2028\u2029]([^\r\n\u0085\u2028\u2029]*[^\s\u0085\u2028\u2029])?/), $.directive_value)),
+      )),
+      // Like every directive line, it ends at any C# line break, not only `\n`.
+      /[\n\u0085\u2028\u2029]/,
+    ),
+
+    directive_name: _ => token(choice(
+      /[^\s@="\u0085\u2028\u2029]+/,
+      /"([^"\\\n\u0085\u2028\u2029]|\\.)*"/,
+    )),
+
+    // `@` for package/sdk versions, `=` for property values. A dedicated
+    // token (rather than reusing the C# `@`/`=` literals) keeps these
+    // directives from perturbing GLR tie-breaks elsewhere in the grammar.
+    directive_separator: _ => token(/[@=]/),
+
+    directive_value: _ => token(/[^\s@=\u0085\u2028\u2029]([^\r\n\u0085\u2028\u2029]*[^\s\u0085\u2028\u2029])?/),
 
     comment: _ => token(choice(
       seq('//', /[^\n\r\u0085\u2028\u2029]*/),

@@ -6151,7 +6151,7 @@
     },
     "type_pattern": {
       "type": "PREC_RIGHT",
-      "value": 1,
+      "value": 2,
       "content": {
         "type": "FIELD",
         "name": "type",
@@ -6273,29 +6273,34 @@
       ]
     },
     "slice_pattern": {
-      "type": "PREC_RIGHT",
-      "value": 0,
-      "content": {
-        "type": "SEQ",
-        "members": [
-          {
+      "type": "CHOICE",
+      "members": [
+        {
+          "type": "PREC",
+          "value": 17,
+          "content": {
             "type": "STRING",
             "value": ".."
-          },
-          {
-            "type": "CHOICE",
+          }
+        },
+        {
+          "type": "PREC_RIGHT",
+          "value": 0,
+          "content": {
+            "type": "SEQ",
             "members": [
+              {
+                "type": "STRING",
+                "value": ".."
+              },
               {
                 "type": "SYMBOL",
                 "name": "pattern"
-              },
-              {
-                "type": "BLANK"
               }
             ]
           }
-        ]
-      }
+        }
+      ]
     },
     "recursive_pattern": {
       "type": "PREC_LEFT",
@@ -13866,6 +13871,218 @@
         ]
       }
     },
+    "ignored_directive": {
+      "type": "SEQ",
+      "members": [
+        {
+          "type": "STRING",
+          "value": "#:"
+        },
+        {
+          "type": "CHOICE",
+          "members": [
+            {
+              "type": "CHOICE",
+              "members": [
+                {
+                  "type": "SEQ",
+                  "members": [
+                    {
+                      "type": "FIELD",
+                      "name": "kind",
+                      "content": {
+                        "type": "CHOICE",
+                        "members": [
+                          {
+                            "type": "ALIAS",
+                            "content": {
+                              "type": "IMMEDIATE_TOKEN",
+                              "content": {
+                                "type": "STRING",
+                                "value": "package"
+                              }
+                            },
+                            "named": true,
+                            "value": "directive_kind"
+                          },
+                          {
+                            "type": "ALIAS",
+                            "content": {
+                              "type": "IMMEDIATE_TOKEN",
+                              "content": {
+                                "type": "STRING",
+                                "value": "sdk"
+                              }
+                            },
+                            "named": true,
+                            "value": "directive_kind"
+                          },
+                          {
+                            "type": "ALIAS",
+                            "content": {
+                              "type": "IMMEDIATE_TOKEN",
+                              "content": {
+                                "type": "STRING",
+                                "value": "property"
+                              }
+                            },
+                            "named": true,
+                            "value": "directive_kind"
+                          }
+                        ]
+                      }
+                    },
+                    {
+                      "type": "CHOICE",
+                      "members": [
+                        {
+                          "type": "SEQ",
+                          "members": [
+                            {
+                              "type": "FIELD",
+                              "name": "name",
+                              "content": {
+                                "type": "SYMBOL",
+                                "name": "directive_name"
+                              }
+                            },
+                            {
+                              "type": "CHOICE",
+                              "members": [
+                                {
+                                  "type": "FIELD",
+                                  "name": "separator",
+                                  "content": {
+                                    "type": "SYMBOL",
+                                    "name": "directive_separator"
+                                  }
+                                },
+                                {
+                                  "type": "BLANK"
+                                }
+                              ]
+                            },
+                            {
+                              "type": "CHOICE",
+                              "members": [
+                                {
+                                  "type": "FIELD",
+                                  "name": "value",
+                                  "content": {
+                                    "type": "SYMBOL",
+                                    "name": "directive_value"
+                                  }
+                                },
+                                {
+                                  "type": "BLANK"
+                                }
+                              ]
+                            }
+                          ]
+                        },
+                        {
+                          "type": "BLANK"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "SEQ",
+                  "members": [
+                    {
+                      "type": "FIELD",
+                      "name": "kind",
+                      "content": {
+                        "type": "ALIAS",
+                        "content": {
+                          "type": "IMMEDIATE_TOKEN",
+                          "content": {
+                            "type": "PATTERN",
+                            "value": "[A-Za-z_][A-Za-z0-9_-]*"
+                          }
+                        },
+                        "named": true,
+                        "value": "directive_kind"
+                      }
+                    },
+                    {
+                      "type": "CHOICE",
+                      "members": [
+                        {
+                          "type": "FIELD",
+                          "name": "value",
+                          "content": {
+                            "type": "SYMBOL",
+                            "name": "directive_value"
+                          }
+                        },
+                        {
+                          "type": "BLANK"
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "type": "FIELD",
+                  "name": "value",
+                  "content": {
+                    "type": "ALIAS",
+                    "content": {
+                      "type": "IMMEDIATE_TOKEN",
+                      "content": {
+                        "type": "PATTERN",
+                        "value": "[ \\t]+[^\\s\\u0085\\u2028\\u2029]([^\\r\\n\\u0085\\u2028\\u2029]*[^\\s\\u0085\\u2028\\u2029])?"
+                      }
+                    },
+                    "named": true,
+                    "value": "directive_value"
+                  }
+                }
+              ]
+            },
+            {
+              "type": "BLANK"
+            }
+          ]
+        },
+        {
+          "type": "PATTERN",
+          "value": "[\\n\\u0085\\u2028\\u2029]"
+        }
+      ]
+    },
+    "directive_name": {
+      "type": "TOKEN",
+      "content": {
+        "type": "CHOICE",
+        "members": [
+          {
+            "type": "PATTERN",
+            "value": "[^\\s@=\"\\u0085\\u2028\\u2029]+"
+          },
+          {
+            "type": "PATTERN",
+            "value": "\"([^\"\\\\\\n\\u0085\\u2028\\u2029]|\\\\.)*\""
+          }
+        ]
+      }
+    },
+    "directive_separator": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PATTERN",
+        "value": "[@=]"
+      }
+    },
+    "directive_value": {
+      "type": "TOKEN",
+      "content": {
+        "type": "PATTERN",
+        "value": "[^\\s@=\\u0085\\u2028\\u2029]([^\\r\\n\\u0085\\u2028\\u2029]*[^\\s\\u0085\\u2028\\u2029])?"
+      }
+    },
     "comment": {
       "type": "TOKEN",
       "content": {
@@ -13949,6 +14166,10 @@
     {
       "type": "SYMBOL",
       "name": "preproc_undef"
+    },
+    {
+      "type": "SYMBOL",
+      "name": "ignored_directive"
     },
     {
       "type": "SYMBOL",
