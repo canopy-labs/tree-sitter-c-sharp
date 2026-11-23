@@ -2909,6 +2909,328 @@ var f = b is { P: C.D | C.E };
                         name: (identifier)))))))))))))
 
 ================================================================================
+Operands of postfix, member access, call, element access and ?.
+================================================================================
+
+var a = b && c?.d;
+var e = f is not null && f?.Count > 0;
+var g = !h?.i;
+var j = (T)k?.l;
+var m = x is Option.Bool(true);
+var n = x is A.B.C(1, 2);
+var o = x is nameof(X.Y) && y;
+var p = x is Foo(var q) && y;
+var r = x is A.B! && y;
+var s = x is A.B ? c : d;
+var t = x is A.B?.C;
+switch (x) { case nameof(X.Y): break; }
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (identifier)
+            right: (conditional_access_expression
+              condition: (identifier)
+              (member_binding_expression
+                name: (identifier))))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (is_pattern_expression
+              expression: (identifier)
+              pattern: (negated_pattern
+                (constant_pattern
+                  (null_literal))))
+            right: (binary_expression
+              left: (conditional_access_expression
+                condition: (identifier)
+                (member_binding_expression
+                  name: (identifier)))
+              right: (integer_literal)))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (prefix_unary_expression
+            (conditional_access_expression
+              condition: (identifier)
+              (member_binding_expression
+                name: (identifier))))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (cast_expression
+            type: (identifier)
+            value: (conditional_access_expression
+              condition: (identifier)
+              (member_binding_expression
+                name: (identifier))))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (is_pattern_expression
+            expression: (identifier)
+            pattern: (constant_pattern
+              (invocation_expression
+                function: (member_access_expression
+                  expression: (identifier)
+                  name: (identifier))
+                arguments: (argument_list
+                  (argument
+                    (boolean_literal))))))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (is_pattern_expression
+            expression: (identifier)
+            pattern: (constant_pattern
+              (invocation_expression
+                function: (member_access_expression
+                  expression: (member_access_expression
+                    expression: (identifier)
+                    name: (identifier))
+                  name: (identifier))
+                arguments: (argument_list
+                  (argument
+                    (integer_literal))
+                  (argument
+                    (integer_literal))))))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (is_pattern_expression
+              expression: (identifier)
+              pattern: (constant_pattern
+                (invocation_expression
+                  function: (identifier)
+                  arguments: (argument_list
+                    (argument
+                      (member_access_expression
+                        expression: (identifier)
+                        name: (identifier)))))))
+            right: (identifier))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (is_pattern_expression
+              expression: (identifier)
+              pattern: (recursive_pattern
+                type: (identifier)
+                (positional_pattern_clause
+                  (subpattern
+                    (declaration_pattern
+                      type: (implicit_type)
+                      name: (identifier))))))
+            right: (identifier))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (is_pattern_expression
+              expression: (identifier)
+              pattern: (constant_pattern
+                (postfix_unary_expression
+                  (member_access_expression
+                    expression: (identifier)
+                    name: (identifier)))))
+            right: (identifier))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (conditional_expression
+            condition: (is_pattern_expression
+              expression: (identifier)
+              pattern: (constant_pattern
+                (member_access_expression
+                  expression: (identifier)
+                  name: (identifier))))
+            consequence: (identifier)
+            alternative: (identifier))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (is_pattern_expression
+            expression: (identifier)
+            pattern: (constant_pattern
+              (conditional_access_expression
+                condition: (member_access_expression
+                  expression: (identifier)
+                  name: (identifier))
+                (member_binding_expression
+                  name: (identifier)))))))))
+  (global_statement
+    (switch_statement
+      value: (identifier)
+      body: (switch_body
+        (switch_section
+          (constant_pattern
+            (invocation_expression
+              function: (identifier)
+              arguments: (argument_list
+                (argument
+                  (member_access_expression
+                    expression: (identifier)
+                    name: (identifier))))))
+          (break_statement))))))
+
+================================================================================
+Arithmetic in a constant pattern before a looser operator
+================================================================================
+
+var a = x is 1 + a && y;
+var b = x is 1 + 2 + a && y;
+var c = x is A.B + 1 && y;
+var d = x is 2 * n || y;
+var e = x is "a" + s && y;
+var f = x is 1 << n && y;
+var g = X * X + Y * Y;
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (is_pattern_expression
+              expression: (identifier)
+              pattern: (constant_pattern
+                (binary_expression
+                  left: (integer_literal)
+                  right: (identifier))))
+            right: (identifier))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (is_pattern_expression
+              expression: (identifier)
+              pattern: (constant_pattern
+                (binary_expression
+                  left: (binary_expression
+                    left: (integer_literal)
+                    right: (integer_literal))
+                  right: (identifier))))
+            right: (identifier))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (is_pattern_expression
+              expression: (identifier)
+              pattern: (constant_pattern
+                (binary_expression
+                  left: (member_access_expression
+                    expression: (identifier)
+                    name: (identifier))
+                  right: (integer_literal))))
+            right: (identifier))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (is_pattern_expression
+              expression: (identifier)
+              pattern: (constant_pattern
+                (binary_expression
+                  left: (integer_literal)
+                  right: (identifier))))
+            right: (identifier))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (is_pattern_expression
+              expression: (identifier)
+              pattern: (constant_pattern
+                (binary_expression
+                  left: (string_literal
+                    (string_literal_content))
+                  right: (identifier))))
+            right: (identifier))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (is_pattern_expression
+              expression: (identifier)
+              pattern: (constant_pattern
+                (binary_expression
+                  left: (integer_literal)
+                  right: (identifier))))
+            right: (identifier))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (binary_expression
+            left: (binary_expression
+              left: (identifier)
+              right: (identifier))
+            right: (binary_expression
+              left: (identifier)
+              right: (identifier))))))))
+
+================================================================================
 Negated pattern
 ================================================================================
 
@@ -3095,15 +3417,13 @@ var c = p is (var x, var y) { x: 0 };
         type: (implicit_type)
         (variable_declarator
           name: (identifier)
-          (invocation_expression
-            function: (is_expression
-              left: (identifier)
-              right: (implicit_type))
-            arguments: (argument_list
-              (argument
-                (identifier))
-              (argument
-                (identifier))))))))
+          (is_pattern_expression
+            expression: (identifier)
+            pattern: (declaration_pattern
+              type: (implicit_type)
+              (parenthesized_variable_designation
+                name: (identifier)
+                name: (identifier))))))))
   (global_statement
     (local_declaration_statement
       (variable_declaration

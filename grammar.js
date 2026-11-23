@@ -55,7 +55,6 @@ export default grammar({
     [$.tuple_pattern, $._simple_name],
 
     [$.lvalue_expression, $._name],
-    [$.parameter, $.lvalue_expression],
     // C# 14 null-conditional assignment: `obj?.x = v` requires
     // `conditional_access_expression` to appear in both lvalue and
     // non-lvalue contexts. Tree-sitter needs GLR for the decision.
@@ -74,10 +73,22 @@ export default grammar({
 
     [$._array_base_type, $.stackalloc_expression],
 
-    [$.binary_expression, $.constant_pattern],
-    [$._constant_member_access, $.member_access_expression],
-    [$.qualified_name, $._constant_member_access],
-    [$.qualified_name, $._constant_member_access, $.member_access_expression],
+    [$.constant_pattern, $.non_lvalue_expression, $.lvalue_expression],
+    [$.constant_pattern, $.non_lvalue_expression, $.lvalue_expression, $._primary_expression],
+    [$._tight_binary_expression, $._constant_arithmetic],
+    [$.constant_pattern, $._primary_expression],
+    [$._name, $.constant_pattern, $._primary_expression],
+    [$.constant_pattern, $.lvalue_expression, $._primary_expression],
+    [$.constant_pattern, $.non_lvalue_expression, $._primary_expression],
+    [$.constant_pattern, $._expression_statement_expression, $._primary_expression],
+    [$._name, $.constant_pattern, $.lvalue_expression, $._primary_expression],
+    [$.parameter, $._primary_expression],
+    [$.non_lvalue_expression, $.lvalue_expression, $._primary_expression],
+    [$._expression_statement_expression, $._primary_expression],
+    [$._name, $.lvalue_expression, $._primary_expression],
+    [$.non_lvalue_expression, $._primary_expression],
+    [$.lvalue_expression, $._primary_expression],
+    [$._name, $._primary_expression],
     [$.binary_expression, $._loose_constant_pattern],
     [$.constant_pattern, $.non_lvalue_expression],
     [$.constant_pattern, $._expression_statement_expression],
@@ -106,7 +117,6 @@ export default grammar({
     // is a lambda / anonymous-method modifier too, so the lambda rules below
     // lost their `prec(-1)` and GLR now picks between modifier and identifier.
     [$._lambda_expression_init, $._reserved_identifier],
-    [$._reserved_identifier],
     [$.modifier, $._lambda_expression_init],
     [$._lambda_expression_init, $.anonymous_method_expression, $._reserved_identifier],
     [$.modifier, $._lambda_expression_init, $.anonymous_method_expression],
@@ -1325,7 +1335,7 @@ export default grammar({
     ),
 
     constant_pattern: $ => choice(
-      alias($._tight_binary_expression, $.binary_expression),
+      alias($._constant_arithmetic, $.binary_expression),
       $.checked_expression,
       $.default_expression,
       $.interpolated_string_expression,
@@ -1335,7 +1345,8 @@ export default grammar({
       $.sizeof_expression,
       $.tuple_expression,
       $.typeof_expression,
-      alias($._constant_member_access, $.member_access_expression),
+      $.member_access_expression,
+      $.conditional_access_expression,
       alias($._name_invocation_pattern, $.invocation_expression),
       alias($._complex_invocation_expression, $.invocation_expression),
       $.cast_expression,
@@ -1560,7 +1571,8 @@ export default grammar({
       $.tuple_expression,
       $._simple_name,
       $.element_access_expression,
-      alias($.bracketed_argument_list, $.element_binding_expression),
+      // Yields to a collection expression: `M([a, b])`.
+      prec.dynamic(-1, alias($.bracketed_argument_list, $.element_binding_expression)),
       alias($._pointer_indirection_expression, $.prefix_unary_expression),
       alias($._parenthesized_lvalue_expression, $.parenthesized_expression),
       // C# 14 null-conditional assignment: `obj?.x = v`, `obj?[i] = v`.
@@ -1607,7 +1619,7 @@ export default grammar({
     ),
 
     postfix_unary_expression: $ => prec(PREC.POSTFIX, seq(
-      $.expression,
+      $._primary_expression,
       choice('++', '--', '!'),
     )),
 
@@ -1627,6 +1639,9 @@ export default grammar({
       '*',
       choice(
         $.lvalue_expression,
+        // `*p++` and `*p.Ref()`: the postfix operator and the call bind first.
+        $.invocation_expression,
+        $.postfix_unary_expression,
         // `*(p + 1)` and `*(T*)p`. The operand is not an lvalue, so the #413
         // restriction above shut them out. They stay legal here, but with a
         // negative dynamic precedence so `(a) * (b + c)` still reads as a
@@ -1644,6 +1659,8 @@ export default grammar({
       // dereference, not a cast of `p = 1`.
       field('value', choice(
         $.lvalue_expression,
+        $.invocation_expression,
+        $.postfix_unary_expression,
         $.parenthesized_expression,
         alias($._address_of_expression, $.prefix_unary_expression),
       )),
@@ -1662,7 +1679,9 @@ export default grammar({
     // be emitted as a single token for the binary path to succeed.
     _address_of_expression: $ => prec.right(PREC.UNARY, seq(
       '&',
-      $.lvalue_expression,
+      // A call or a postfix operator binds tighter than `&`, and a call can
+      // return a reference: `&MemoryMarshal.GetReference(span)`.
+      choice($.lvalue_expression, $.invocation_expression, $.postfix_unary_expression),
     )),
 
     query_expression: $ => seq($.from_clause, $._query_body),
@@ -1741,7 +1760,7 @@ export default grammar({
     )),
 
     conditional_access_expression: $ => prec.right(PREC.CONDITIONAL, seq(
-      field('condition', $.expression),
+      field('condition', $._primary_expression),
       '?',
       choice(
         $.member_binding_expression,
@@ -1782,7 +1801,7 @@ export default grammar({
     ),
 
     invocation_expression: $ => prec(PREC.INVOCATION, seq(
-      field('function', $.expression),
+      field('function', $._primary_expression),
       field('arguments', $.argument_list),
     )),
 
@@ -1816,7 +1835,7 @@ export default grammar({
     throw_expression: $ => seq('throw', $.expression),
 
     element_access_expression: $ => prec(PREC.POSTFIX, seq(
-      field('expression', $.expression),
+      field('expression', $._primary_expression),
       field('subscript', $.bracketed_argument_list),
     )),
 
@@ -1870,7 +1889,7 @@ export default grammar({
     interpolation_format_clause: _ => seq(':', /[^}"]+/),
 
     member_access_expression: $ => prec(PREC.DOT, seq(
-      field('expression', choice($.expression, $.predefined_type, $._name)),
+      field('expression', choice($._primary_expression, $.predefined_type, $._name)),
       choice('.', '->'),
       field('name', $._simple_name),
     )),
@@ -2534,19 +2553,69 @@ export default grammar({
     // looser operators too: `case A | B:`, `A | B => 0`, `{ P: A | B }`.
     _loose_constant_pattern: $ => alias($._loose_binary_expression, $.binary_expression),
 
-    // A member access in a constant outranks one whose receiver is the whole
-    // `is` expression, once per `.`: `x is A.B.C && y` is `(x is A.B.C) && y`,
-    // not `(x is A.B).C && y`.
-    _constant_member_access: $ => prec.dynamic(1, prec(PREC.DOT, seq(
-      field('expression', choice(
-        alias($._constant_member_access, $.member_access_expression),
-        $.expression,
-        $.predefined_type,
-        $._name,
-      )),
-      choice('.', '->'),
-      field('name', $._simple_name),
-    ))),
+
+    // What C# lets a postfix operator, a member access, a call, an element
+    // access or `?.` apply to: a primary expression. A binary, `is`, `as`,
+    // conditional, cast, unary or lambda expression needs parentheses there,
+    // so `x is A.B && y` cannot read `(x is A).B && y`.
+    _primary_expression: $ => choice(
+      'this',
+      'base',
+      $.member_access_expression,
+      $.tuple_expression,
+      $._simple_name,
+      $.element_access_expression,
+      alias($._parenthesized_lvalue_expression, $.parenthesized_expression),
+      $.parenthesized_expression,
+      $.conditional_access_expression,
+      $.interpolated_string_expression,
+      $.literal,
+      $.invocation_expression,
+      $.postfix_unary_expression,
+      $.object_creation_expression,
+      $.checked_expression,
+      $.collection_expression,
+      $.default_expression,
+      $.sizeof_expression,
+      $.typeof_expression,
+      $.makeref_expression,
+      $.reftype_expression,
+      $.refvalue_expression,
+      $.stackalloc_expression,
+      $.array_creation_expression,
+      $.anonymous_object_creation_expression,
+      $.implicit_array_creation_expression,
+      $.implicit_object_creation_expression,
+      $.implicit_stackalloc_expression,
+      alias($.preproc_if_in_expression, $.preproc_if),
+    ),
+
+
+    // The arithmetic a constant pattern holds. Each operator in it outranks
+    // reading the `is` test as that operator's left operand, so
+    // `x is 1 + 2 + a && y` is `(x is 1 + 2 + a) && y`, never
+    // `((x is 1 + 2) + a) && y`: the grammar's GLR conflicts would otherwise
+    // leave that to a tie.
+    _constant_arithmetic: $ => choice(
+      ...[
+        ['>>', PREC.SHIFT],
+        ['>>>', PREC.SHIFT],
+        ['<<', PREC.SHIFT],
+        ['+', PREC.ADD],
+        ['-', PREC.ADD],
+        ['*', PREC.MULT],
+        ['/', PREC.MULT],
+        ['%', PREC.MULT],
+      ].map(([operator, precedence]) =>
+        prec.dynamic(1, prec.left(precedence, seq(
+          field('left', choice(alias($._constant_arithmetic, $.binary_expression), $.expression)),
+          // @ts-ignore
+          field('operator', operator),
+          field('right', $.expression),
+        ))),
+      ),
+    ),
+
   },
 });
 
