@@ -74,6 +74,11 @@ export default grammar({
 
     [$._array_base_type, $.stackalloc_expression],
 
+    [$.binary_expression, $.constant_pattern],
+    [$._constant_member_access, $.member_access_expression],
+    [$.qualified_name, $._constant_member_access],
+    [$.qualified_name, $._constant_member_access, $.member_access_expression],
+    [$.binary_expression, $._loose_constant_pattern],
     [$.constant_pattern, $.non_lvalue_expression],
     [$.constant_pattern, $._expression_statement_expression],
     [$.constant_pattern, $.lvalue_expression],
@@ -1152,8 +1157,12 @@ export default grammar({
         seq(
           'case',
           choice(
-            $.expression,
-            seq($.pattern, optional($.when_clause)),
+            // Only for what no pattern holds: `case A | B:` is a constant pattern.
+            prec.dynamic(-1, $.expression),
+            seq(
+              choice($.pattern, alias($._loose_constant_pattern, $.constant_pattern)),
+              optional($.when_clause),
+            ),
           ),
         ),
         'default',
@@ -1316,7 +1325,7 @@ export default grammar({
     ),
 
     constant_pattern: $ => choice(
-      $.binary_expression,
+      alias($._tight_binary_expression, $.binary_expression),
       $.checked_expression,
       $.default_expression,
       $.interpolated_string_expression,
@@ -1326,7 +1335,7 @@ export default grammar({
       $.sizeof_expression,
       $.tuple_expression,
       $.typeof_expression,
-      $.member_access_expression,
+      alias($._constant_member_access, $.member_access_expression),
       alias($._name_invocation_pattern, $.invocation_expression),
       alias($._complex_invocation_expression, $.invocation_expression),
       $.cast_expression,
@@ -1454,15 +1463,17 @@ export default grammar({
           seq($.identifier, ':'),
         ),
       ),
-      $.pattern,
+      choice($.pattern, prec.dynamic(-1, alias($._loose_constant_pattern, $.constant_pattern))),
     )),
 
-    relational_pattern: $ => choice(
+    // The operand ends at the first operator that does not bind tighter than a
+    // comparison: `x is > 1 && y` is `(x is > 1) && y`.
+    relational_pattern: $ => prec.left(PREC.REL, choice(
       seq('<', $.expression),
       seq('<=', $.expression),
       seq('>', $.expression),
       seq('>=', $.expression),
-    ),
+    )),
 
     negated_pattern: $ => seq('not', $.pattern),
 
@@ -1591,39 +1602,8 @@ export default grammar({
     ),
 
     binary_expression: $ => choice(
-      ...[
-        ['&&', PREC.LOGICAL_AND],
-        ['||', PREC.LOGICAL_OR],
-        ['>>', PREC.SHIFT],
-        ['>>>', PREC.SHIFT],
-        ['<<', PREC.SHIFT],
-        ['&', PREC.AND],
-        ['^', PREC.XOR],
-        ['|', PREC.OR],
-        ['+', PREC.ADD],
-        ['-', PREC.ADD],
-        ['*', PREC.MULT],
-        ['/', PREC.MULT],
-        ['%', PREC.MULT],
-        ['<', PREC.REL],
-        ['<=', PREC.REL],
-        ['==', PREC.EQUAL],
-        ['!=', PREC.EQUAL],
-        ['>=', PREC.REL],
-        ['>', PREC.REL],
-      ].map(([operator, precedence]) =>
-        prec.left(precedence, seq(
-          field('left', $.expression),
-          // @ts-ignore
-          field('operator', operator),
-          field('right', $.expression),
-        )),
-      ),
-      prec.right(PREC.COALESCING, seq(
-        field('left', $.expression),
-        field('operator', '??'),
-        field('right', $.expression),
-      )),
+      $._tight_binary_expression,
+      $._loose_binary_expression,
     ),
 
     postfix_unary_expression: $ => prec(PREC.POSTFIX, seq(
@@ -1820,7 +1800,7 @@ export default grammar({
 
 
     switch_expression_arm: $ => seq(
-      $.pattern,
+      choice($.pattern, alias($._loose_constant_pattern, $.constant_pattern)),
       optional($.when_clause),
       '=>',
       $.expression,
@@ -2497,6 +2477,76 @@ export default grammar({
         '/',
       ),
     )),
+
+    // The binary operators that bind tighter than `is`: a constant pattern may
+    // hold them (`x is 1 + 2`).
+    _tight_binary_expression: $ => choice(
+      ...[
+        ['>>', PREC.SHIFT],
+        ['>>>', PREC.SHIFT],
+        ['<<', PREC.SHIFT],
+        ['+', PREC.ADD],
+        ['-', PREC.ADD],
+        ['*', PREC.MULT],
+        ['/', PREC.MULT],
+        ['%', PREC.MULT],
+      ].map(([operator, precedence]) =>
+        prec.left(precedence, seq(
+          field('left', $.expression),
+          // @ts-ignore
+          field('operator', operator),
+          field('right', $.expression),
+        )),
+      ),
+    ),
+
+    // The binary operators that do not bind tighter than `is`. After `is` they
+    // apply to the whole test: `x is null || y` is `(x is null) || y`.
+    _loose_binary_expression: $ => choice(
+      ...[
+        ['&&', PREC.LOGICAL_AND],
+        ['||', PREC.LOGICAL_OR],
+        ['&', PREC.AND],
+        ['^', PREC.XOR],
+        ['|', PREC.OR],
+        ['<', PREC.REL],
+        ['<=', PREC.REL],
+        ['==', PREC.EQUAL],
+        ['!=', PREC.EQUAL],
+        ['>=', PREC.REL],
+        ['>', PREC.REL],
+      ].map(([operator, precedence]) =>
+        prec.left(precedence, seq(
+          field('left', $.expression),
+          // @ts-ignore
+          field('operator', operator),
+          field('right', $.expression),
+        )),
+      ),
+      prec.right(PREC.COALESCING, seq(
+        field('left', $.expression),
+        field('operator', '??'),
+        field('right', $.expression),
+      )),
+    ),
+
+    // Where no `is` expression encloses the pattern, a constant may use the
+    // looser operators too: `case A | B:`, `A | B => 0`, `{ P: A | B }`.
+    _loose_constant_pattern: $ => alias($._loose_binary_expression, $.binary_expression),
+
+    // A member access in a constant outranks one whose receiver is the whole
+    // `is` expression, once per `.`: `x is A.B.C && y` is `(x is A.B.C) && y`,
+    // not `(x is A.B).C && y`.
+    _constant_member_access: $ => prec.dynamic(1, prec(PREC.DOT, seq(
+      field('expression', choice(
+        alias($._constant_member_access, $.member_access_expression),
+        $.expression,
+        $.predefined_type,
+        $._name,
+      )),
+      choice('.', '->'),
+      field('name', $._simple_name),
+    ))),
   },
 });
 

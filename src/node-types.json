@@ -4003,6 +4003,10 @@
             "named": true
           },
           {
+            "type": "member_access_expression",
+            "named": true
+          },
+          {
             "type": "predefined_type",
             "named": true
           },
