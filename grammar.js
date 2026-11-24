@@ -1361,6 +1361,8 @@ export default grammar({
       alias($._complex_invocation_expression, $.invocation_expression),
       $.cast_expression,
       $._simple_name,
+      // A constant or type named `nameof`: `x is nameof`.
+      alias($._nameof, $.identifier),
       $.literal,
     ),
 
@@ -1368,8 +1370,11 @@ export default grammar({
     // whatever its arguments hold (`Foo(1)`, `Foo(1 + 2)`, `Foo(var q)`), and
     // `(…, …)` always a positional pattern too. `nameof(…)` is the one call a
     // constant can be.
+    // `nameof` where a constant pattern can start, and only there.
+    _nameof: _ => token(prec(1, 'nameof')),
+
     _name_invocation_pattern: $ => seq(
-      field('function', alias(token(prec(1, 'nameof')), $.identifier)),
+      field('function', alias($._nameof, $.identifier)),
       field('arguments', $.argument_list),
     ),
 
@@ -1631,6 +1636,7 @@ export default grammar({
 
     binary_expression: $ => choice(
       $._tight_binary_expression,
+      $._relational_binary_expression,
       $._loose_binary_expression,
     ),
 
@@ -2549,12 +2555,8 @@ export default grammar({
         ['&', PREC.AND],
         ['^', PREC.XOR],
         ['|', PREC.OR],
-        ['<', PREC.REL],
-        ['<=', PREC.REL],
         ['==', PREC.EQUAL],
         ['!=', PREC.EQUAL],
-        ['>=', PREC.REL],
-        ['>', PREC.REL],
       ].map(([operator, precedence]) =>
         prec.left(precedence, seq(
           field('left', $.expression),
@@ -2572,7 +2574,28 @@ export default grammar({
 
     // Where no `is` expression encloses the pattern, a constant may use the
     // looser operators too: `case A | B:`, `A | B => 0`, `{ P: A | B }`.
-    _loose_constant_pattern: $ => alias($._loose_binary_expression, $.binary_expression),
+    _loose_constant_pattern: $ => choice(
+      alias($._loose_binary_expression, $.binary_expression),
+      alias($._relational_binary_expression, $.binary_expression),
+    ),
+
+    // `<`, `<=`, `>` and `>=`. Their left operand is never an `is` test, whose
+    // `bool` has no ordering: so `x is G<Guid>[]` and `x is A<B>(1)` are a
+    // generic type, never `((x is G) < Guid) > …`, the way C# disambiguates.
+    _relational_binary_expression: $ => choice(
+      ...['<', '<=', '>', '>='].map((operator) =>
+        prec.left(PREC.REL, seq(
+          field('left', choice(
+            $._tight_operand,
+            alias($._relational_binary_expression, $.binary_expression),
+            $.as_expression,
+          )),
+          // @ts-ignore
+          field('operator', operator),
+          field('right', $._tight_operand),
+        )),
+      ),
+    ),
 
 
     // What C# lets a postfix operator, a member access, a call, an element

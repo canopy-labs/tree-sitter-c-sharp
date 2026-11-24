@@ -3513,6 +3513,209 @@ var f = x is nameof(X.Y);
                       (identifier))))))))))))
 
 ================================================================================
+Generic types after is
+================================================================================
+
+M(o is G<Guid>[], false);
+M(x is A < B, C > (1 + 2));
+var a = x is A.B<C>[];
+var b = x is A.B<C> c;
+var d = x is A<B>(1);
+var e = x is A<B>(1 + 2);
+var f = x is G<Guid>? g;
+var h = x is A<B<C>>[] d;
+var i = x is nameof;
+var j = x switch { nameof => 1, nameof(A) => 2 };
+if (x is A.B.C<D> e) { }
+
+--------------------------------------------------------------------------------
+
+(compilation_unit
+  (global_statement
+    (expression_statement
+      (invocation_expression
+        function: (identifier)
+        arguments: (argument_list
+          (argument
+            (is_expression
+              left: (identifier)
+              right: (array_type
+                type: (generic_name
+                  (identifier)
+                  (type_argument_list
+                    (identifier)))
+                rank: (array_rank_specifier))))
+          (argument
+            (boolean_literal))))))
+  (global_statement
+    (expression_statement
+      (invocation_expression
+        function: (identifier)
+        arguments: (argument_list
+          (argument
+            (is_pattern_expression
+              expression: (identifier)
+              pattern: (recursive_pattern
+                type: (generic_name
+                  (identifier)
+                  (type_argument_list
+                    (identifier)
+                    (identifier)))
+                (positional_pattern_clause
+                  (subpattern
+                    (constant_pattern
+                      (binary_expression
+                        left: (integer_literal)
+                        right: (integer_literal))))))))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (is_expression
+            left: (identifier)
+            right: (array_type
+              type: (qualified_name
+                qualifier: (identifier)
+                name: (generic_name
+                  (identifier)
+                  (type_argument_list
+                    (identifier))))
+              rank: (array_rank_specifier)))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (is_pattern_expression
+            expression: (identifier)
+            pattern: (declaration_pattern
+              type: (qualified_name
+                qualifier: (identifier)
+                name: (generic_name
+                  (identifier)
+                  (type_argument_list
+                    (identifier))))
+              name: (identifier)))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (is_pattern_expression
+            expression: (identifier)
+            pattern: (recursive_pattern
+              type: (generic_name
+                (identifier)
+                (type_argument_list
+                  (identifier)))
+              (positional_pattern_clause
+                (subpattern
+                  (constant_pattern
+                    (integer_literal))))))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (is_pattern_expression
+            expression: (identifier)
+            pattern: (recursive_pattern
+              type: (generic_name
+                (identifier)
+                (type_argument_list
+                  (identifier)))
+              (positional_pattern_clause
+                (subpattern
+                  (constant_pattern
+                    (binary_expression
+                      left: (integer_literal)
+                      right: (integer_literal)))))))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (is_pattern_expression
+            expression: (identifier)
+            pattern: (declaration_pattern
+              type: (nullable_type
+                type: (generic_name
+                  (identifier)
+                  (type_argument_list
+                    (identifier))))
+              name: (identifier)))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (is_pattern_expression
+            expression: (identifier)
+            pattern: (declaration_pattern
+              type: (array_type
+                type: (generic_name
+                  (identifier)
+                  (type_argument_list
+                    (generic_name
+                      (identifier)
+                      (type_argument_list
+                        (identifier)))))
+                rank: (array_rank_specifier))
+              name: (identifier)))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (is_pattern_expression
+            expression: (identifier)
+            pattern: (constant_pattern
+              (identifier)))))))
+  (global_statement
+    (local_declaration_statement
+      (variable_declaration
+        type: (implicit_type)
+        (variable_declarator
+          name: (identifier)
+          (switch_expression
+            (identifier)
+            (switch_expression_arm
+              (constant_pattern
+                (identifier))
+              (integer_literal))
+            (switch_expression_arm
+              (constant_pattern
+                (invocation_expression
+                  function: (identifier)
+                  arguments: (argument_list
+                    (argument
+                      (identifier)))))
+              (integer_literal)))))))
+  (global_statement
+    (if_statement
+      condition: (is_pattern_expression
+        expression: (identifier)
+        pattern: (declaration_pattern
+          type: (qualified_name
+            qualifier: (qualified_name
+              qualifier: (identifier)
+              name: (identifier))
+            name: (generic_name
+              (identifier)
+              (type_argument_list
+                (identifier))))
+          name: (identifier)))
+      consequence: (block))))
+
+================================================================================
 Negated pattern
 ================================================================================
 
