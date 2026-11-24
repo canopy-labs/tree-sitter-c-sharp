@@ -2582,6 +2582,11 @@ export default grammar({
     // `<`, `<=`, `>` and `>=`. Their left operand is never an `is` test, whose
     // `bool` has no ordering: so `x is G<Guid>[]` and `x is A<B>(1)` are a
     // generic type, never `((x is G) < Guid) > …`, the way C# disambiguates.
+    //
+    // This deliberately rejects `(x is A) < b` without the parentheses. It is
+    // valid C# only when `b`'s type declares a user-defined `operator <(bool, B)`,
+    // which no file of the 46,529 measured does. An ERROR there makes a tool
+    // that rewrites along the tree refuse the file instead of misreading it.
     _relational_binary_expression: $ => choice(
       ...['<', '<=', '>', '>='].map((operator) =>
         prec.left(PREC.REL, seq(
@@ -2795,34 +2800,34 @@ function sep(rule, separator) {
  */
 function primaryExpressions($) {
   return [
-        'this',
-        'base',
-        $.member_access_expression,
-        $.tuple_expression,
-        $._simple_name,
-        $.element_access_expression,
-        alias($._parenthesized_lvalue_expression, $.parenthesized_expression),
-        $.parenthesized_expression,
-        $.conditional_access_expression,
-        $.interpolated_string_expression,
-        $.literal,
-        $.invocation_expression,
-        $.postfix_unary_expression,
-        $.object_creation_expression,
-        $.checked_expression,
-        $.collection_expression,
-        $.default_expression,
-        $.sizeof_expression,
-        $.typeof_expression,
-        $.makeref_expression,
-        $.reftype_expression,
-        $.refvalue_expression,
-        $.stackalloc_expression,
-        $.array_creation_expression,
-        $.anonymous_object_creation_expression,
-        $.implicit_array_creation_expression,
-        $.implicit_object_creation_expression,
-        $.implicit_stackalloc_expression,
-        alias($.preproc_if_in_expression, $.preproc_if),
+    'this',
+    'base',
+    $.member_access_expression,
+    $.tuple_expression,
+    $._simple_name,
+    $.element_access_expression,
+    alias($._parenthesized_lvalue_expression, $.parenthesized_expression),
+    $.parenthesized_expression,
+    $.conditional_access_expression,
+    $.interpolated_string_expression,
+    $.literal,
+    $.invocation_expression,
+    $.postfix_unary_expression,
+    $.object_creation_expression,
+    $.checked_expression,
+    $.collection_expression,
+    $.default_expression,
+    $.sizeof_expression,
+    $.typeof_expression,
+    $.makeref_expression,
+    $.reftype_expression,
+    $.refvalue_expression,
+    $.stackalloc_expression,
+    $.array_creation_expression,
+    $.anonymous_object_creation_expression,
+    $.implicit_array_creation_expression,
+    $.implicit_object_creation_expression,
+    $.implicit_stackalloc_expression,
+    alias($.preproc_if_in_expression, $.preproc_if),
   ];
 }
